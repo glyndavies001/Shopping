@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0f0f">
+<title>Trolley</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --accent: #c8f135;
+    --accent-dim: rgba(200, 241, 53, 0.12);
+    --muted: #555;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --collected: #3a3a3a;
+    --danger: #ff5252;
+    --radius: 10px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* CONFIG SCREEN */
+  .config-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+  }
+
+  .config-screen.hidden { display: none; }
+
+  .config-card {
+    max-width: 360px;
+    width: 100%;
+  }
+
+  .config-card h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .config-card p {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .config-card label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    margin-top: 14px;
+  }
+
+  .config-card input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    -webkit-appearance: none;
+  }
+
+  .config-card input:focus { border-color: var(--accent); }
+
+  .config-card button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    border: none;
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .config-card button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .config-status {
+    margin-top: 12px;
+    font-size: 12px;
+    text-align: center;
+    min-height: 16px;
+  }
+
+  .config-status.error { color: var(--danger); }
+  .config-status.ok { color: var(--accent); }
+
+  /* HEADER */
+  header {
+    padding: 20px 20px 0;
+    flex-shrink: 0;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+
+  .sync-dot.connected {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .sync-dot.syncing {
+    background: #ffa500;
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat-val {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .progress-track {
+    height: 2px;
+    background: var(--border);
+    border-radius: 99px;
+    margin: 8px 0 0;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 12px 20px 0;
+    flex-shrink: 0;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    border-bottom: 2px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* LIST */
+  .list-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 20px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .list-wrap::-webkit-scrollbar { display: none; }
+
+  .section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 12px 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 0.2s;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .item:active { transform: scale(0.98); }
+
+  .item.collected {
+    background: var(--collected);
+    border-color: transparent;
+    opacity: 0.6;
+  }
+
+  .item.collected::before { transform: scaleY(1); }
+
+  .check-box {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .item.collected .check-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .check-icon {
+    opacity: 0;
+    color: #000;
+    font-size: 13px;
+    font-weight: bold;
+    transition: opacity 0.15s;
+  }
+
+  .item.collected .check-icon { opacity: 1; }
+
+  .item-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .item-name {
+    font-size: 14px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.2s;
+  }
+
+  .item.collected .item-name {
+    color: var(--text-dim);
+    text-decoration: line-through;
+  }
+
+  .item-meta {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .item:hover .item-actions,
+  .item.swiped .item-actions { opacity: 1; }
+
+  .btn-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-icon:active { transform: scale(0.9); }
+  .btn-icon.danger:active { background: var(--danger); color: white; border-color: var(--danger); }
+
+  .need-more-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .need-more-btn.active {
+    background: rgba(255, 82, 82, 0.15);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  /* ADD FORM */
+  .add-area {
+    padding: 12px 20px;
+    padding-bottom: calc(12px + var(--safe-bottom));
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .add-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .add-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .add-input::placeholder { color: var(--muted); }
+  .add-input:focus { border-color: var(--accent); }
+
+  .add-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    border: none;
+    color: #000;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .add-btn:active { transform: scale(0.92); }
+
+  .actions-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .action-btn {
+    flex: 1;
+    padding: 9px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .action-btn:active { opacity: 0.7; }
+
+  .action-btn.primary {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  .empty-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .empty-sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 99px;
+    font-size: 12px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* TRIP COMPLETE */
+  .trip-complete {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    backdrop-filter: blur(8px);
+  }
+
+  .trip-complete.show { display: flex; }
+
+  .trip-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    max-width: 320px;
+    width: 100%;
+  }
+
+  .trip-card h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 28px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .trip-card p {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .trip-card button {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    border: none;
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  /* SETTINGS BUTTON */
+  .settings-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 16px;
+  }
+</style>
+</head>
+<body>
+
+<!-- CONFIG SCREEN: shown until Supabase credentials are entered -->
+<div class="config-screen" id="configScreen">
+  <div class="config-card">
+    <h1>trolley</h1>
+    <p>Connect to your Supabase project to start syncing your shared shopping list across devices.</p>
+
+    <label>Supabase URL</label>
+    <input type="text" id="cfgUrl" placeholder="https://xxxxx.supabase.co" autocomplete="off">
+
+    <label>Anon Key</label>
+    <input type="text" id="cfgKey" placeholder="eyJhbG..." autocomplete="off">
+
+    <button id="cfgConnect" onclick="connect()">connect</button>
+    <div class="config-status" id="cfgStatus"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div class="header-top">
+      <div class="logo">trolley</div>
+      <div class="header-meta">
+        <span id="tripBadge">trip #1</span>
+        <span class="sync-dot" id="syncDot" title="sync status"></span>
+        <button class="settings-btn" onclick="openSettings()" title="settings">⚙</button>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-val" id="statTotal">0</div>
+        <div class="stat-label">items</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="statCollected">0</div>
+        <div class="stat-label">collected</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="statNeedMore">0</div>
+        <div class="stat-label">need more</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="statTrips">0</div>
+        <div class="stat-label">trips</div>
+      </div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" id="tabAll" onclick="setTab('all')">All</button>
+    <button class="tab" id="tabNeeded" onclick="setTab('needed')">Need More</button>
+    <button class="tab" id="tabCollected" onclick="setTab('collected')">Collected</button>
+  </div>
+
+  <div class="list-wrap" id="listWrap"></div>
+
+  <div class="add-area">
+    <div class="add-row">
+      <input class="add-input" id="addInput" placeholder="add item..." maxlength="60"
+        onkeydown="if(event.key==='Enter')addItem()">
+      <button class="add-btn" onclick="addItem()">+</button>
+    </div>
+    <div class="actions-row">
+      <button class="action-btn" onclick="clearCollected()">clear collected</button>
+      <button class="action-btn primary" onclick="startNewTrip()">new trip →</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="trip-complete" id="tripComplete">
+  <div class="trip-card">
+    <div style="font-size:40px;margin-bottom:12px">🛒</div>
+    <h2>trip done!</h2>
+    <p id="tripSummary">All items collected. Trolley has updated its ordering for next time.</p>
+    <button onclick="closeTripComplete()">start fresh list</button>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+
+let supabase = null;
+let state = {
+  items: [],        // from DB
+  orderMap: {},     // name -> avg score
+  tripCount: 0,
+};
+let currentTab = 'all';
+let currentTripOrder = 0;
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+
+function getConfig() {
+  const url = localStorage.getItem('trolley_url');
+  const key = localStorage.getItem('trolley_key');
+  return (url && key) ? { url, key } : null;
+}
+
+function saveConfig(url, key) {
+  localStorage.setItem('trolley_url', url);
+  localStorage.setItem('trolley_key', key);
+}
+
+window.connect = async function() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+  const status = document.getElementById('cfgStatus');
+  const btn = document.getElementById('cfgConnect');
+
+  if (!url || !key) {
+    status.textContent = 'both fields required';
+    status.className = 'config-status error';
+    return;
+  }
+
+  btn.disabled = true;
+  status.textContent = 'connecting...';
+  status.className = 'config-status';
+
+  try {
+    const client = createClient(url, key);
+    // test connection
+    const { error } = await client.from('items').select('id').limit(1);
+    if (error) throw error;
+
+    saveConfig(url, key);
+    status.textContent = 'connected!';
+    status.className = 'config-status ok';
+    setTimeout(() => init(), 400);
+  } catch (e) {
+    status.textContent = 'connection failed: ' + (e.message || 'check URL/key and that tables exist');
+    status.className = 'config-status error';
+    btn.disabled = false;
+  }
+};
+
+window.openSettings = function() {
+  if (!confirm('Disconnect from Supabase? Your data stays in the database.')) return;
+  localStorage.removeItem('trolley_url');
+  localStorage.removeItem('trolley_key');
+  location.reload();
+};
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+async function init() {
+  const cfg = getConfig();
+  if (!cfg) {
+    document.getElementById('configScreen').classList.remove('hidden');
+    document.getElementById('app').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('configScreen').classList.add('hidden');
+  document.getElementById('app').style.display = 'flex';
+
+  supabase = createClient(cfg.url, cfg.key);
+
+  setSyncStatus('syncing');
+  await loadAll();
+  setSyncStatus('connected');
+
+  // Realtime subscriptions
+  supabase
+    .channel('items-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+      loadItems();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_map' }, () => {
+      loadOrderMap();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'meta' }, () => {
+      loadMeta();
+    })
+    .subscribe();
+
+  render();
+}
+
+function setSyncStatus(s) {
+  const dot = document.getElementById('syncDot');
+  dot.classList.remove('connected', 'syncing');
+  if (s === 'connected') dot.classList.add('connected');
+  if (s === 'syncing') dot.classList.add('syncing');
+}
+
+// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+
+async function loadAll() {
+  await Promise.all([loadItems(), loadOrderMap(), loadMeta()]);
+}
+
+async function loadItems() {
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .order('added_at', { ascending: true });
+  if (error) { console.error(error); return; }
+  state.items = data || [];
+  render();
+}
+
+async function loadOrderMap() {
+  const { data, error } = await supabase.from('order_map').select('*');
+  if (error) { console.error(error); return; }
+  state.orderMap = {};
+  for (const row of (data || [])) {
+    state.orderMap[row.name] = row.score;
+  }
+  render();
+}
+
+async function loadMeta() {
+  const { data, error } = await supabase
+    .from('meta')
+    .select('*')
+    .eq('key', 'trip_count')
+    .maybeSingle();
+  if (error) { console.error(error); return; }
+  state.tripCount = data ? parseInt(data.value) || 0 : 0;
+  render();
+}
+
+async function setMeta(key, value) {
+  await supabase.from('meta').upsert({ key, value: String(value) });
+}
+
+// ─── ORDER LEARNING ───────────────────────────────────────────────────────────
+
+async function recordCollection(name, orderPos) {
+  const alpha = 0.35;
+  const existing = state.orderMap[name];
+  const newScore = existing == null ? orderPos : (1 - alpha) * existing + alpha * orderPos;
+
+  state.orderMap[name] = newScore;
+  await supabase.from('order_map').upsert({ name, score: newScore });
+}
+
+function getOrderScore(name) {
+  const n = name.toLowerCase().trim();
+  if (state.orderMap[n] != null) return state.orderMap[n];
+  return 9999;
+}
+
+function hasLearnedOrder(name) {
+  return state.orderMap[name.toLowerCase().trim()] != null;
+}
+
+function confidenceLevel(name) {
+  if (state.orderMap[name.toLowerCase().trim()] == null) return 0;
+  if (state.tripCount >= 5) return 2;
+  if (state.tripCount >= 2) return 1;
+  return 0;
+}
+
+function sortedItems(items) {
+  return [...items].sort((a, b) => {
+    const sa = getOrderScore(a.name);
+    const sb = getOrderScore(b.name);
+    if (sa !== sb) return sa - sb;
+    return new Date(a.added_at) - new Date(b.added_at);
+  });
+}
+
+// ─── ACTIONS ──────────────────────────────────────────────────────────────────
+
+window.addItem = async function() {
+  const input = document.getElementById('addInput');
+  const name = input.value.trim();
+  if (!name) return;
+
+  const dup = state.items.find(i =>
+    i.name.toLowerCase() === name.toLowerCase() && !i.collected_at
+  );
+  if (dup) { showToast('already on list'); return; }
+
+  input.value = '';
+  setSyncStatus('syncing');
+
+  const { error } = await supabase.from('items').insert({
+    name,
+    need_more: false,
+    collected_at: null,
+    added_at: new Date().toISOString(),
+  });
+
+  if (error) { showToast('failed: ' + error.message); setSyncStatus('connected'); return; }
+  setSyncStatus('connected');
+  input.focus();
+};
+
+window.toggleCollected = async function(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+
+  setSyncStatus('syncing');
+
+  if (!item.collected_at) {
+    const collectedAt = new Date().toISOString();
+    await supabase.from('items').update({
+      collected_at: collectedAt,
+      need_more: false,
+    }).eq('id', id);
+    await recordCollection(item.name.toLowerCase().trim(), currentTripOrder++);
+  } else {
+    await supabase.from('items').update({ collected_at: null }).eq('id', id);
+    currentTripOrder = Math.max(0, currentTripOrder - 1);
+  }
+
+  setSyncStatus('connected');
+  setTimeout(checkAllCollected, 600);
+};
+
+window.toggleNeedMore = async function(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  setSyncStatus('syncing');
+  await supabase.from('items').update({ need_more: !item.need_more }).eq('id', id);
+  setSyncStatus('connected');
+};
+
+window.removeItem = async function(id) {
+  setSyncStatus('syncing');
+  await supabase.from('items').delete().eq('id', id);
+  setSyncStatus('connected');
+};
+
+window.clearCollected = async function() {
+  const collected = state.items.filter(i => i.collected_at);
+  if (!collected.length) { showToast('nothing collected yet'); return; }
+  setSyncStatus('syncing');
+  await supabase.from('items').delete().not('collected_at', 'is', null);
+  setSyncStatus('connected');
+  showToast(`cleared ${collected.length} item${collected.length > 1 ? 's' : ''}`);
+};
+
+window.startNewTrip = async function() {
+  const collected = state.items.filter(i => i.collected_at);
+  if (collected.length === 0 && state.items.length > 0) {
+    showToast('collect items first, then start a new trip');
+    return;
+  }
+  setSyncStatus('syncing');
+  state.tripCount++;
+  await setMeta('trip_count', state.tripCount);
+  await supabase.from('items').delete().not('collected_at', 'is', null);
+  currentTripOrder = 0;
+  setSyncStatus('connected');
+  showToast(`trip #${state.tripCount} complete`);
+};
+
+function checkAllCollected() {
+  const active = state.items.filter(i => !i.collected_at);
+  if (active.length === 0 && state.items.length > 0) {
+    const collected = state.items.filter(i => i.collected_at).length;
+    document.getElementById('tripSummary').textContent =
+      `You collected ${collected} item${collected !== 1 ? 's' : ''}. Trolley has updated its ordering for next time.`;
+    document.getElementById('tripComplete').classList.add('show');
+  }
+}
+
+window.closeTripComplete = function() {
+  document.getElementById('tripComplete').classList.remove('show');
+  startNewTrip();
+};
+
+window.setTab = function(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  render();
+};
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+
+function render() {
+  const all = state.items;
+  const total = all.length;
+  const collected = all.filter(i => i.collected_at).length;
+  const needMore = all.filter(i => i.need_more).length;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statCollected').textContent = collected;
+  document.getElementById('statNeedMore').textContent = needMore;
+  document.getElementById('statTrips').textContent = state.tripCount;
+  document.getElementById('tripBadge').textContent = `trip #${state.tripCount + 1}`;
+
+  const pct = total > 0 ? Math.round((collected / total) * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+
+  const wrap = document.getElementById('listWrap');
+  let visible = all;
+  if (currentTab === 'needed') visible = all.filter(i => i.need_more);
+  if (currentTab === 'collected') visible = all.filter(i => i.collected_at);
+
+  const pending = sortedItems(visible.filter(i => !i.collected_at));
+  const done = sortedItems(visible.filter(i => i.collected_at));
+
+  if (visible.length === 0) {
+    wrap.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">${currentTab === 'needed' ? '📋' : currentTab === 'collected' ? '✓' : '🛒'}</div>
+        <div class="empty-title">${currentTab === 'all' ? 'list is empty' : 'nothing here'}</div>
+        <div class="empty-sub">${currentTab === 'all' ? 'add items below to get started' : ''}</div>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  if (pending.length) {
+    const hasLearned = pending.some(i => hasLearnedOrder(i.name));
+    html += `<div class="section-label">${hasLearned ? 'sorted by your route' : 'to collect'}</div>`;
+    html += pending.map(item => itemHTML(item)).join('');
+  }
+  if (done.length) {
+    html += `<div class="section-label">collected</div>`;
+    html += done.map(item => itemHTML(item)).join('');
+  }
+
+  wrap.innerHTML = html;
+}
+
+function itemHTML(item) {
+  const conf = confidenceLevel(item.name);
+  const learned = hasLearnedOrder(item.name);
+  const metaParts = [];
+
+  if (learned && !item.collected_at) {
+    const dots = '●'.repeat(conf + 1) + '○'.repeat(2 - conf);
+    metaParts.push(`<span title="route confidence">${dots} learned</span>`);
+  }
+  if (item.need_more && !item.collected_at) {
+    metaParts.push(`<span style="color:var(--danger)">⚠ need more</span>`);
+  }
+
+  return `
+    <div class="item${item.collected_at ? ' collected' : ''}"
+         onclick="toggleCollected(${item.id})">
+      <div class="check-box">
+        <span class="check-icon">✓</span>
+      </div>
+      <div class="item-body">
+        <div class="item-name">${escHtml(item.name)}</div>
+        ${metaParts.length ? `<div class="item-meta">${metaParts.join('<span style="color:var(--border)">·</span>')}</div>` : ''}
+      </div>
+      <div class="item-actions" onclick="event.stopPropagation()">
+        <button class="need-more-btn${item.need_more ? ' active' : ''}"
+          onclick="toggleNeedMore(${item.id})">
+          ${item.need_more ? '⚠ more' : '+ more'}
+        </button>
+        <button class="btn-icon danger" onclick="removeItem(${item.id})" title="remove">✕</button>
+      </div>
+    </div>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+window.showToast = showToast;
+
+// Long-press to reveal actions on mobile
+let pressTimer;
+document.getElementById('listWrap').addEventListener('pointerdown', e => {
+  const item = e.target.closest('.item');
+  if (!item) return;
+  if (e.target.closest('.item-actions')) return;
+  pressTimer = setTimeout(() => item.classList.add('swiped'), 400);
+});
+document.addEventListener('pointerup', () => clearTimeout(pressTimer));
+document.getElementById('listWrap').addEventListener('click', e => {
+  document.querySelectorAll('.item.swiped').forEach(i => {
+    if (!i.contains(e.target)) i.classList.remove('swiped');
+  });
+});
+
+init();
+</script>
+</body>
+</html>
