@@ -2,857 +2,537 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0d120c">
 <title>Trolley</title>
 <link rel="manifest" href="manifest.json">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #0d120c;
-    --surface: #161d15;
-    --surface2: #1f2a1d;
-    --border: #2a3528;
-    --accent: #4a6b3e;          /* Jungle Wood Green */
-    --accent-bright: #6a8f5a;   /* lifted version for hover/active */
-    --accent-dim: rgba(74, 107, 62, 0.18);
-    --muted: #4a5648;
-    --text: #e4e8e0;
-    --text-dim: #889384;
-    --collected: #2a3528;
-    --danger: #c45050;
-    --warning: #d4a854;
-    --radius: 10px;
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-top: env(safe-area-inset-top, 0px);
-  }
-
-  html, body {
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    font-size: 14px;
-    -webkit-font-smoothing: antialiased;
-    overflow: hidden;
-  }
-
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    max-width: 480px;
-    margin: 0 auto;
-    position: relative;
-  }
-
-  /* CONFIG SCREEN */
-  .config-screen {
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .config-screen.hidden { display: none; }
-
-  .config-card {
-    max-width: 360px;
-    width: 100%;
-  }
-
-  .config-card h1 {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 32px;
-    color: var(--accent-bright);
-    margin-bottom: 8px;
-  }
-
-  .config-card p {
-    color: var(--text-dim);
-    font-size: 13px;
-    margin-bottom: 24px;
-    line-height: 1.5;
-  }
-
-  .config-card label {
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-dim);
-    margin-bottom: 6px;
-    margin-top: 14px;
-  }
-
-  .config-card input {
-    width: 100%;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--text);
-    outline: none;
-    -webkit-appearance: none;
-  }
-
-  .config-card input:focus { border-color: var(--accent-bright); }
-
-  .config-card button {
-    width: 100%;
-    margin-top: 20px;
-    padding: 14px;
-    border-radius: var(--radius);
-    background: var(--accent);
-    border: none;
-    color: #fff;
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 15px;
-    cursor: pointer;
-  }
-
-  .config-card button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .config-status {
-    margin-top: 12px;
-    font-size: 12px;
-    text-align: center;
-    min-height: 16px;
-  }
-
-  .config-status.error { color: var(--danger); }
-  .config-status.ok { color: var(--accent-bright); }
-
-  /* HEADER */
-  header {
-    padding: 18px 20px 0;
-    flex-shrink: 0;
-  }
-
-  .header-top {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 4px;
-  }
-
-  .logo {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 26px;
-    letter-spacing: -0.5px;
-    color: var(--accent-bright);
-  }
-
-  .header-meta {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-
-  .sync-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition: background 0.3s;
-  }
-
-  .sync-dot.connected {
-    background: var(--accent-bright);
-    box-shadow: 0 0 8px var(--accent);
-  }
-
-  .sync-dot.syncing {
-    background: var(--warning);
-    animation: pulse 1s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* MAIN TABS (Trip / Master / History) */
-  .main-tabs {
-    display: flex;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 3px;
-    margin-top: 10px;
-    margin-bottom: 12px;
-  }
-
-  .main-tab {
-    flex: 1;
-    padding: 9px;
-    text-align: center;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-dim);
-    background: none;
-    border: none;
-    border-radius: 7px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .main-tab.active {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  /* STATS BAR */
-  .stats-bar {
-    display: flex;
-    gap: 14px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .stat {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .stat-val {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--text);
-    line-height: 1;
-  }
-
-  .stat-label {
-    font-size: 10px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .progress-track {
-    height: 2px;
-    background: var(--border);
-    border-radius: 99px;
-    margin-top: 8px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: var(--accent-bright);
-    border-radius: 99px;
-    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* SUB-TABS (within trip view) */
-  .sub-tabs {
-    display: flex;
-    padding: 10px 20px 0;
-    flex-shrink: 0;
-  }
-
-  .sub-tab {
-    flex: 1;
-    padding: 7px;
-    text-align: center;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-dim);
-    background: none;
-    border: none;
-    border-bottom: 2px solid var(--border);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .sub-tab.active {
-    color: var(--accent-bright);
-    border-bottom-color: var(--accent-bright);
-  }
-
-  /* LIST */
-  .list-wrap {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 8px 20px;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .list-wrap::-webkit-scrollbar { display: none; }
-
-  .section-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    padding: 12px 0 6px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  .item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin-bottom: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .item::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: var(--accent-bright);
-    transform: scaleY(0);
-    transform-origin: center;
-    transition: transform 0.2s;
-    border-radius: 0 3px 3px 0;
-  }
-
-  .item:active { transform: scale(0.98); }
-
-  .item.collected {
-    background: var(--collected);
-    border-color: transparent;
-    opacity: 0.55;
-  }
-
-  .item.collected::before { transform: scaleY(1); }
-
-  .check-box {
-    width: 22px;
-    height: 22px;
-    border: 2px solid var(--border);
-    border-radius: 6px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .item.collected .check-box {
-    background: var(--accent-bright);
-    border-color: var(--accent-bright);
-  }
-
-  .check-icon {
-    opacity: 0;
-    color: #fff;
-    font-size: 13px;
-    font-weight: bold;
-  }
-
-  .item.collected .check-icon { opacity: 1; }
-
-  .item-body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .item-name {
-    font-size: 14px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .item.collected .item-name {
-    color: var(--text-dim);
-    text-decoration: line-through;
-  }
-
-  .item-meta {
-    font-size: 10px;
-    color: var(--muted);
-    margin-top: 2px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  /* Quantity badge */
-  .qty-badge {
-    background: var(--accent-dim);
-    color: var(--accent-bright);
-    border: 1px solid var(--accent);
-    border-radius: 99px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-weight: 500;
-    flex-shrink: 0;
-  }
-
-  /* Inline quantity controls (master list) */
-  .qty-controls {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--surface2);
-    border-radius: 99px;
-    padding: 2px;
-  }
-
-  .qty-btn {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: none;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .qty-btn:active { transform: scale(0.9); }
-
-  .qty-val {
-    min-width: 24px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .need-btn {
-    padding: 6px 14px;
-    border-radius: 99px;
-    border: 1px solid var(--accent);
-    background: var(--accent-dim);
-    color: var(--accent-bright);
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    letter-spacing: 0.05em;
-    transition: all 0.15s;
-    -webkit-tap-highlight-color: transparent;
-    text-transform: uppercase;
-  }
-
-  .need-btn:active {
-    background: var(--accent);
-    color: #fff;
-    transform: scale(0.96);
-  }
-
-  .need-btn.on-list {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  .item-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .btn-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text-dim);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    transition: all 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .btn-icon:active { transform: scale(0.9); }
-  .btn-icon.danger:active { background: var(--danger); color: white; border-color: var(--danger); }
-
-  .need-more-btn {
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 99px;
-    border: 1px solid var(--border);
-    background: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .need-more-btn.active {
-    background: rgba(196, 80, 80, 0.15);
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-
-  /* ADD AREA */
-  .add-area {
-    padding: 10px 20px;
-    padding-bottom: calc(10px + var(--safe-bottom));
-    background: var(--bg);
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .add-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .add-input {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    font-family: 'DM Mono', monospace;
-    font-size: 14px;
-    color: var(--text);
-    outline: none;
-    -webkit-appearance: none;
-  }
-
-  .add-input::placeholder { color: var(--muted); }
-  .add-input:focus { border-color: var(--accent-bright); }
-
-  .add-btn {
-    width: 46px;
-    height: 46px;
-    border-radius: var(--radius);
-    background: var(--accent);
-    border: none;
-    color: #fff;
-    font-size: 22px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .add-btn:active { transform: scale(0.92); }
-
-  .actions-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .action-btn {
-    flex: 1;
-    padding: 9px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-dim);
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    cursor: pointer;
-    text-align: center;
-    letter-spacing: 0.03em;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .action-btn:active { opacity: 0.7; }
-
-  .action-btn.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-
-  /* EMPTY STATE */
-  .empty {
-    text-align: center;
-    padding: 48px 20px;
-    color: var(--text-dim);
-  }
-
-  .empty-icon {
-    font-size: 40px;
-    margin-bottom: 12px;
-    opacity: 0.4;
-  }
-
-  .empty-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 16px;
-    color: var(--text-dim);
-    margin-bottom: 6px;
-  }
-
-  .empty-sub {
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  /* SEARCH (master list) */
-  .search-row {
-    padding: 8px 20px 0;
-    flex-shrink: 0;
-  }
-
-  .search-input {
-    width: 100%;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 14px;
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--text);
-    outline: none;
-    -webkit-appearance: none;
-  }
-
-  .search-input::placeholder { color: var(--muted); }
-  .search-input:focus { border-color: var(--accent-bright); }
-
-  /* HISTORY / STATS */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-
-  .stats-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-  }
-
-  .stats-card-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-dim);
-    margin-bottom: 4px;
-  }
-
-  .stats-card-val {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 24px;
-    color: var(--accent-bright);
-    line-height: 1.1;
-  }
-
-  .stats-card-sub {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 4px;
-  }
-
-  .trip-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-    margin-bottom: 8px;
-  }
-
-  .trip-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    cursor: pointer;
-  }
-
-  .trip-date {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    color: var(--text);
-  }
-
-  .trip-summary {
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-
-  .trip-items {
-    display: none;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-  }
-
-  .trip-card.expanded .trip-items { display: block; }
-
-  .trip-item-line {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 12px;
-  }
-
-  .trip-item-name { color: var(--text); }
-  .trip-item-qty { color: var(--text-dim); }
-
-  .trip-delete {
-    background: none;
-    border: none;
-    color: var(--danger);
-    font-size: 11px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .trip-delete:hover { background: rgba(196, 80, 80, 0.1); }
-
-  /* TOAST */
-  .toast {
-    position: fixed;
-    bottom: 110px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 18px;
-    border-radius: 99px;
-    font-size: 12px;
-    opacity: 0;
-    transition: all 0.3s;
-    pointer-events: none;
-    white-space: nowrap;
-    z-index: 100;
-  }
-
-  .toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  /* TRIP COMPLETE MODAL */
-  .modal-bg {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-    backdrop-filter: blur(8px);
-  }
-
-  .modal-bg.show { display: flex; }
-
-  .modal-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px;
-    text-align: center;
-    max-width: 320px;
-    width: 100%;
-  }
-
-  .modal-card h2 {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 28px;
-    color: var(--accent-bright);
-    margin-bottom: 8px;
-  }
-
-  .modal-card p {
-    color: var(--text-dim);
-    font-size: 13px;
-    margin-bottom: 24px;
-    line-height: 1.5;
-  }
-
-  .modal-card button {
-    width: 100%;
-    padding: 14px;
-    border-radius: var(--radius);
-    background: var(--accent);
-    border: none;
-    color: #fff;
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 15px;
-    cursor: pointer;
-  }
-
-  .modal-card button.secondary {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    margin-top: 8px;
-  }
-
-  .settings-btn {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    padding: 4px;
-    font-size: 16px;
-  }
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d120c;
+  --surface: #161d15;
+  --surface2: #1f2a1d;
+  --surface3: #28342567;
+  --border: #2a3528;
+  --accent: #4a6b3e;
+  --accent-bright: #6a8f5a;
+  --accent-dim: rgba(74, 107, 62, 0.18);
+  --muted: #4a5648;
+  --text: #e4e8e0;
+  --text-dim: #889384;
+  --collected: #2a3528;
+  --danger: #c45050;
+  --warning: #d4a854;
+  --info: #5a8fa0;
+  --radius: 10px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button, input { font-family: inherit; color: inherit; }
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── Config screen ─────────────────────────────────────────────────────── */
+.config-screen {
+  position: fixed; inset: 0; background: var(--bg); z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px;
+}
+.config-screen.hidden { display: none; }
+.config-card { max-width: 360px; width: 100%; }
+.config-card h1 {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 32px;
+  color: var(--accent-bright); margin-bottom: 8px;
+}
+.config-card p { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; line-height: 1.5; }
+.config-card label {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-dim); margin-bottom: 6px; margin-top: 14px;
+}
+.config-card input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; font-size: 13px;
+  outline: none; -webkit-appearance: none;
+}
+.config-card input:focus { border-color: var(--accent-bright); }
+.config-card button {
+  width: 100%; margin-top: 20px; padding: 14px; border-radius: var(--radius);
+  background: var(--accent); border: none; color: #fff;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px;
+}
+.config-card button:disabled { opacity: 0.4; }
+.config-status { margin-top: 12px; font-size: 12px; text-align: center; min-height: 16px; }
+.config-status.error { color: var(--danger); }
+.config-status.ok { color: var(--accent-bright); }
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+header { padding: 16px 18px 0; flex-shrink: 0; }
+
+.header-top {
+  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
+}
+.logo {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px;
+  letter-spacing: -0.5px; color: var(--accent-bright);
+}
+.header-meta {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--text-dim);
+}
+.sync-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+  transition: background 0.3s;
+}
+.sync-dot.connected { background: var(--accent-bright); box-shadow: 0 0 8px var(--accent); }
+.sync-dot.syncing { background: var(--warning); animation: pulse 1s infinite; }
+.sync-dot.offline { background: var(--danger); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.icon-btn {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  padding: 4px; font-size: 16px; line-height: 1;
+}
+
+.queue-badge {
+  background: var(--warning); color: #000; border-radius: 99px;
+  font-size: 9px; padding: 2px 6px; font-weight: 700;
+}
+
+/* Shop selector */
+.shop-bar {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  font-size: 12px; color: var(--text-dim);
+}
+.shop-select {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--text);
+  outline: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23889384' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+}
+
+.main-tabs {
+  display: flex; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 3px; margin-bottom: 10px;
+}
+.main-tab {
+  flex: 1; padding: 9px 4px; text-align: center;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); background: none; border: none; border-radius: 7px; cursor: pointer;
+}
+.main-tab.active { background: var(--accent); color: #fff; }
+
+/* Stats */
+.stats-bar {
+  display: flex; gap: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat-val {
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 17px;
+  color: var(--text); line-height: 1;
+}
+.stat-label {
+  font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em;
+}
+.progress-track { height: 2px; background: var(--border); border-radius: 99px; margin-top: 6px; overflow: hidden; }
+.progress-fill {
+  height: 100%; background: var(--accent-bright); border-radius: 99px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sub tabs */
+.sub-tabs { display: flex; padding: 8px 18px 0; flex-shrink: 0; }
+.sub-tab {
+  flex: 1; padding: 7px 4px; text-align: center;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); background: none; border: none;
+  border-bottom: 2px solid var(--border); cursor: pointer;
+}
+.sub-tab.active { color: var(--accent-bright); border-bottom-color: var(--accent-bright); }
+
+/* Search */
+.search-row { padding: 8px 18px 0; flex-shrink: 0; }
+.search-input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 14px; font-size: 13px;
+  color: var(--text); outline: none; -webkit-appearance: none;
+}
+.search-input:focus { border-color: var(--accent-bright); }
+
+/* List */
+.list-wrap {
+  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 18px 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.list-wrap::-webkit-scrollbar { display: none; }
+
+.section-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); padding: 10px 0 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label.with-line::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.section-label .cat-badge {
+  background: var(--surface3); padding: 2px 8px; border-radius: 99px;
+  font-size: 9px; color: var(--text-dim);
+}
+
+.item-row-wrapper {
+  position: relative; margin-bottom: 6px; overflow: hidden; border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.swipe-actions {
+  position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center;
+  padding: 0 18px; pointer-events: none;
+}
+.swipe-actions .swipe-left, .swipe-actions .swipe-right {
+  font-size: 18px; opacity: 0;
+}
+.swipe-left { color: var(--accent-bright); }
+.swipe-right { color: var(--danger); }
+
+.item {
+  display: flex; align-items: center; gap: 10px; padding: 12px 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer;
+  position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s, opacity 0.2s, background 0.2s;
+  touch-action: pan-y;
+}
+.item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--accent-bright); transform: scaleY(0);
+  transition: transform 0.2s; border-radius: 0 3px 3px 0;
+}
+.item.collected {
+  background: var(--collected); border-color: transparent; opacity: 0.55;
+}
+.item.collected::before { transform: scaleY(1); }
+
+.check-box {
+  width: 22px; height: 22px; border: 2px solid var(--border); border-radius: 6px;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.item.collected .check-box { background: var(--accent-bright); border-color: var(--accent-bright); }
+.check-icon { opacity: 0; color: #fff; font-size: 13px; font-weight: bold; }
+.item.collected .check-icon { opacity: 1; }
+
+.item-body { flex: 1; min-width: 0; }
+.item-name {
+  font-size: 14px; color: var(--text); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.item.collected .item-name { color: var(--text-dim); text-decoration: line-through; }
+.item-meta {
+  font-size: 10px; color: var(--muted); margin-top: 2px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.item-meta .sep { color: var(--border); }
+.item-notes { font-size: 11px; color: var(--text-dim); margin-top: 1px; font-style: italic; }
+
+.qty-badge {
+  background: var(--accent-dim); color: var(--accent-bright); border: 1px solid var(--accent);
+  border-radius: 99px; padding: 2px 8px; font-size: 11px; font-weight: 500; flex-shrink: 0;
+}
+
+.qty-controls {
+  display: flex; align-items: center; gap: 2px; background: var(--surface2);
+  border-radius: 99px; padding: 2px;
+}
+.qty-btn {
+  width: 26px; height: 26px; border-radius: 50%; border: none;
+  background: var(--surface); color: var(--text); font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.qty-btn:active { transform: scale(0.9); }
+.qty-val { min-width: 24px; text-align: center; font-size: 13px; font-weight: 500; }
+
+.need-btn {
+  padding: 6px 12px; border-radius: 99px; border: 1px solid var(--accent);
+  background: var(--accent-dim); color: var(--accent-bright);
+  font-size: 11px; font-weight: 500; cursor: pointer; letter-spacing: 0.05em;
+  -webkit-tap-highlight-color: transparent; text-transform: uppercase;
+}
+.need-btn:active { background: var(--accent); color: #fff; }
+
+.item-actions { display: flex; gap: 6px; align-items: center; }
+.btn-icon {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text-dim); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-icon:active { transform: scale(0.9); }
+.btn-icon.staple.active { color: var(--warning); border-color: var(--warning); }
+.btn-icon.danger:active { background: var(--danger); color: white; border-color: var(--danger); }
+
+.need-more-btn {
+  font-size: 10px; padding: 3px 8px; border-radius: 99px;
+  border: 1px solid var(--border); background: none; color: var(--text-dim);
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.need-more-btn.active {
+  background: rgba(196, 80, 80, 0.15); border-color: var(--danger); color: var(--danger);
+}
+
+/* Add area */
+.add-area {
+  padding: 10px 18px; padding-bottom: calc(10px + var(--safe-bottom));
+  background: var(--bg); border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.add-row { display: flex; gap: 6px; }
+.add-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; font-size: 14px;
+  color: var(--text); outline: none; -webkit-appearance: none;
+}
+.add-input::placeholder { color: var(--muted); }
+.add-input:focus { border-color: var(--accent-bright); }
+.icon-control-btn {
+  width: 46px; height: 46px; border-radius: var(--radius); flex-shrink: 0;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+  font-size: 17px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-control-btn.active { color: var(--danger); border-color: var(--danger); }
+.icon-control-btn:active { transform: scale(0.94); }
+.add-btn {
+  width: 46px; height: 46px; border-radius: var(--radius); background: var(--accent);
+  border: none; color: #fff; font-size: 22px; font-weight: bold;
+  flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+}
+.add-btn:active { transform: scale(0.92); }
+
+.actions-row { display: flex; gap: 8px; margin-top: 8px; }
+.action-btn {
+  flex: 1; padding: 9px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-dim); font-size: 11px;
+  cursor: pointer; text-align: center; letter-spacing: 0.03em;
+  -webkit-tap-highlight-color: transparent;
+}
+.action-btn:active { opacity: 0.7; }
+.action-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Empty */
+.empty { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+.empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
+.empty-title {
+  font-family: 'Syne', sans-serif; font-size: 15px;
+  color: var(--text-dim); margin-bottom: 4px;
+}
+.empty-sub { font-size: 11px; color: var(--muted); }
+
+/* Suggestions card */
+.suggest-card {
+  background: linear-gradient(135deg, var(--accent-dim), transparent);
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 12px; margin-bottom: 10px;
+}
+.suggest-title {
+  font-size: 11px; color: var(--accent-bright); text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.suggest-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggest-chip {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 10px; border-radius: 99px; font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+.suggest-chip:active { background: var(--accent); color: #fff; }
+.suggest-chip .due { color: var(--warning); font-size: 9px; }
+
+/* Stats cards (history) */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.stats-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px;
+}
+.stats-card-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-dim); margin-bottom: 4px;
+}
+.stats-card-val {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px;
+  color: var(--accent-bright); line-height: 1.1;
+}
+.stats-card-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* Heatmap */
+.heatmap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px; margin-bottom: 12px;
+}
+.heatmap-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-dim); margin-bottom: 10px;
+}
+.heatmap-grid {
+  display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px;
+}
+.heatmap-cell {
+  aspect-ratio: 1; border-radius: 2px; background: var(--surface2);
+}
+.heatmap-cell.l1 { background: rgba(106, 143, 90, 0.3); }
+.heatmap-cell.l2 { background: rgba(106, 143, 90, 0.6); }
+.heatmap-cell.l3 { background: var(--accent-bright); }
+.heatmap-legend {
+  display: flex; justify-content: space-between; margin-top: 8px;
+  font-size: 9px; color: var(--muted);
+}
+
+/* Trip cards */
+.trip-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px; margin-bottom: 8px;
+}
+.trip-header {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; gap: 8px;
+}
+.trip-date {
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--text);
+}
+.trip-summary { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.trip-items {
+  display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.trip-card.expanded .trip-items { display: block; }
+.trip-item-line {
+  display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px;
+}
+.trip-item-name { color: var(--text); }
+.trip-item-qty { color: var(--text-dim); }
+.trip-delete {
+  background: none; border: none; color: var(--danger); font-size: 11px;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 100px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 16px; border-radius: 99px;
+  font-size: 12px; opacity: 0; transition: all 0.3s; pointer-events: none;
+  white-space: nowrap; z-index: 100; display: flex; align-items: center; gap: 10px;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+.toast-undo {
+  background: var(--accent); color: #fff; border: none;
+  padding: 4px 10px; border-radius: 99px; font-size: 11px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+
+/* Modal */
+.modal-bg {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  z-index: 200; align-items: center; justify-content: center; padding: 24px;
+  backdrop-filter: blur(8px);
+}
+.modal-bg.show { display: flex; }
+.modal-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px; max-width: 340px; width: 100%;
+  max-height: 80vh; overflow-y: auto;
+}
+.modal-card h2 {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px;
+  color: var(--accent-bright); margin-bottom: 8px;
+}
+.modal-card p { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+.modal-card .modal-row { margin-bottom: 12px; }
+.modal-card label {
+  display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-dim); margin-bottom: 4px;
+}
+.modal-card input, .modal-card select, .modal-card textarea {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text);
+  font-family: inherit; outline: none; -webkit-appearance: none;
+}
+.modal-card select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23889384' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px;
+}
+.modal-card input:focus, .modal-card select:focus, .modal-card textarea:focus { border-color: var(--accent-bright); }
+.modal-btn-row { display: flex; gap: 8px; margin-top: 16px; }
+.modal-btn {
+  flex: 1; padding: 12px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); font-family: 'Syne', sans-serif;
+  font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.modal-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.modal-btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+/* Install prompt banner */
+.install-banner {
+  display: none; background: var(--accent); color: #fff;
+  padding: 8px 14px; text-align: center; font-size: 12px;
+  border-radius: var(--radius); margin: 8px 18px 0; cursor: pointer;
+}
+.install-banner.show { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.install-banner button {
+  background: rgba(0,0,0,0.2); border: none; color: #fff;
+  padding: 4px 10px; border-radius: 99px; font-size: 11px; cursor: pointer;
+}
+
+/* Mic listening indicator */
+.icon-control-btn.listening {
+  background: var(--danger); color: #fff; border-color: var(--danger);
+  animation: pulse-mic 1s infinite;
+}
+@keyframes pulse-mic {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 80, 80, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(196, 80, 80, 0); }
+}
+
+/* Dormant items section */
+.dormant-section { opacity: 0.7; }
+
+/* Category section headers */
+.cat-icon {
+  width: 14px; height: 14px; border-radius: 3px; display: inline-block;
+  margin-right: 6px; vertical-align: -2px;
+}
+
 </style>
 </head>
 <body>
 
+<!-- Config screen -->
 <div class="config-screen" id="configScreen">
   <div class="config-card">
     <h1>trolley</h1>
-    <p>Connect to your Supabase project to start syncing your shared shopping list across devices.</p>
+    <p>Connect to your Supabase project to start syncing across devices.</p>
     <label>Supabase URL</label>
     <input type="text" id="cfgUrl" placeholder="https://xxxxx.supabase.co" autocomplete="off">
     <label>Anon Key</label>
@@ -867,9 +547,21 @@
     <div class="header-top">
       <div class="logo">trolley</div>
       <div class="header-meta">
+        <span class="queue-badge" id="queueBadge" style="display:none">0</span>
         <span class="sync-dot" id="syncDot"></span>
-        <button class="settings-btn" onclick="openSettings()" title="settings">⚙</button>
+        <button class="icon-btn" onclick="openSettings()" title="settings">⚙</button>
       </div>
+    </div>
+
+    <div class="shop-bar">
+      <span>shop:</span>
+      <select class="shop-select" id="shopSelect" onchange="setActiveShop(this.value)"></select>
+      <button class="icon-btn" onclick="openShopManager()" title="manage shops" style="font-size:14px">+</button>
+    </div>
+
+    <div class="install-banner" id="installBanner">
+      <span>Install Trolley for offline use</span>
+      <button onclick="installApp()">install</button>
     </div>
 
     <div class="main-tabs">
@@ -878,87 +570,367 @@
       <button class="main-tab" id="viewHistory" onclick="setView('history')">History</button>
     </div>
 
-    <!-- Stats bar (visible on trip view) -->
     <div class="stats-bar" id="tripStats">
-      <div class="stat">
-        <div class="stat-val" id="statTotal">0</div>
-        <div class="stat-label">items</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statQty">0</div>
-        <div class="stat-label">total qty</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statCollected">0</div>
-        <div class="stat-label">collected</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statNeedMore">0</div>
-        <div class="stat-label">need more</div>
-      </div>
+      <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-label">items</div></div>
+      <div class="stat"><div class="stat-val" id="statQty">0</div><div class="stat-label">qty</div></div>
+      <div class="stat"><div class="stat-val" id="statCollected">0</div><div class="stat-label">done</div></div>
+      <div class="stat"><div class="stat-val" id="statNeedMore">0</div><div class="stat-label">flag</div></div>
+      <div class="stat"><div class="stat-val" id="statCost">£0</div><div class="stat-label">est cost</div></div>
     </div>
     <div class="progress-track" id="progressTrack">
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
   </header>
 
-  <!-- Sub-tabs only relevant on trip view -->
   <div class="sub-tabs" id="subTabs">
     <button class="sub-tab active" id="tabAll" onclick="setTab('all')">All</button>
-    <button class="sub-tab" id="tabNeeded" onclick="setTab('needed')">Need More</button>
-    <button class="sub-tab" id="tabCollected" onclick="setTab('collected')">Collected</button>
+    <button class="sub-tab" id="tabNeeded" onclick="setTab('needed')">Flagged</button>
+    <button class="sub-tab" id="tabCollected" onclick="setTab('collected')">Done</button>
   </div>
 
-  <!-- Search bar (master view) -->
-  <div class="search-row" id="searchRow" style="display:none">
-    <input class="search-input" id="searchInput" placeholder="search master list..." oninput="render()">
+  <div class="search-row" id="searchRow">
+    <input class="search-input" id="searchInput" placeholder="search..." oninput="render()">
   </div>
 
   <div class="list-wrap" id="listWrap"></div>
 
-  <!-- Add area (changes label based on view) -->
   <div class="add-area">
     <div class="add-row">
-      <input class="add-input" id="addInput" placeholder="add to master list..." maxlength="60"
+      <input class="add-input" id="addInput" placeholder="add to trip..." maxlength="60"
         onkeydown="if(event.key==='Enter')addItem()">
+      <button class="icon-control-btn" id="micBtn" onclick="toggleVoice()" title="voice">🎤</button>
       <button class="add-btn" onclick="addItem()">+</button>
     </div>
     <div class="actions-row" id="actionsRow">
-      <button class="action-btn" onclick="clearCollected()">clear collected</button>
-      <button class="action-btn primary" onclick="completeTrip()">finish trip →</button>
+      <button class="action-btn" onclick="addAllStaples()">+ staples</button>
+      <button class="action-btn" onclick="clearCollected()">clear done</button>
+      <button class="action-btn primary" onclick="completeTrip()">finish →</button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+  <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
+</div>
 
+<!-- Trip complete modal -->
 <div class="modal-bg" id="tripComplete">
-  <div class="modal-card">
-    <div style="font-size:40px;margin-bottom:12px">🛒</div>
+  <div class="modal-card" style="text-align:center">
+    <div style="font-size:36px;margin-bottom:8px">🛒</div>
     <h2>trip done!</h2>
-    <p id="tripSummary">All items collected. Trolley has updated its route.</p>
-    <button onclick="confirmCompleteTrip()">save trip</button>
-    <button class="secondary" onclick="closeTripComplete()">keep shopping</button>
+    <p id="tripSummary">Save trip?</p>
+    <div class="modal-row">
+      <label>Actual total (optional)</label>
+      <input type="number" step="0.01" id="actualCost" placeholder="0.00">
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="closeTripComplete()">keep shopping</button>
+      <button class="modal-btn primary" onclick="confirmCompleteTrip()">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Item edit modal -->
+<div class="modal-bg" id="itemEdit">
+  <div class="modal-card">
+    <h2 id="editTitle">Edit item</h2>
+    <div class="modal-row">
+      <label>Name</label>
+      <input type="text" id="editName">
+    </div>
+    <div class="modal-row">
+      <label>Category</label>
+      <select id="editCategory">
+        <option value="">— uncategorised —</option>
+        <option value="produce">🥬 Produce</option>
+        <option value="dairy">🥛 Dairy</option>
+        <option value="meat">🥩 Meat</option>
+        <option value="frozen">🧊 Frozen</option>
+        <option value="bakery">🍞 Bakery</option>
+        <option value="pantry">🥫 Pantry</option>
+        <option value="snacks">🍫 Snacks</option>
+        <option value="drinks">🥤 Drinks</option>
+        <option value="household">🧽 Household</option>
+        <option value="pet">🐾 Pet</option>
+        <option value="other">📦 Other</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <label>Est. price (£)</label>
+      <input type="number" step="0.01" id="editPrice" placeholder="0.00">
+    </div>
+    <div class="modal-row">
+      <label>Notes (brand, size, etc)</label>
+      <input type="text" id="editNotes" placeholder="optional">
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn danger" onclick="deleteFromEdit()">delete</button>
+      <button class="modal-btn" onclick="closeEdit()">cancel</button>
+      <button class="modal-btn primary" onclick="saveEdit()">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shop manager modal -->
+<div class="modal-bg" id="shopManager">
+  <div class="modal-card">
+    <h2>Shops</h2>
+    <p>Tag trips with the shop so routes are learned separately.</p>
+    <div id="shopList"></div>
+    <div class="modal-row" style="margin-top:14px">
+      <label>Add new shop</label>
+      <input type="text" id="newShopName" placeholder="e.g. Tesco, Lidl, Costco">
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="closeShopManager()">close</button>
+      <button class="modal-btn primary" onclick="addShop()">add shop</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal-card">
+    <h2>Settings</h2>
+    <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
+    <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
+    <div class="modal-btn-row" style="flex-direction:column">
+      <button class="modal-btn" onclick="forceSync()">force sync now</button>
+      <button class="modal-btn" onclick="clearLocalCache()">clear local cache</button>
+      <button class="modal-btn danger" onclick="disconnect()">disconnect</button>
+      <button class="modal-btn" onclick="closeSettings()" style="margin-top:8px">close</button>
+    </div>
   </div>
 </div>
 
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// ─── STATE ────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+
+const CATEGORIES = {
+  produce:   { icon: '🥬', color: '#6a8f5a' },
+  dairy:     { icon: '🥛', color: '#d4d4a8' },
+  meat:      { icon: '🥩', color: '#c45050' },
+  frozen:    { icon: '🧊', color: '#5a8fa0' },
+  bakery:    { icon: '🍞', color: '#c89058' },
+  pantry:    { icon: '🥫', color: '#a08858' },
+  snacks:    { icon: '🍫', color: '#8b6a4a' },
+  drinks:    { icon: '🥤', color: '#7a9fa8' },
+  household: { icon: '🧽', color: '#9090a0' },
+  pet:       { icon: '🐾', color: '#b88858' },
+  other:     { icon: '📦', color: '#6a6a6a' },
+};
+
+// Auto-categoriser keyword map
+const CAT_KEYWORDS = {
+  produce: ['cucumber','pepper','tomato','celery','carrot','banana','apple','grape','onion','potato','lemon','lime','orange','salad','lettuce','spinach','kale','avocado','garlic','ginger','mushroom','strawberr','blueberr','raspberr','fruit','veg','herb','basil','coriander','parsley','rocket','squash','aubergine','courgette','leek','cauliflower','beans','beans','pea','broccoli','cabbage','sprout','melon','mango','pineapple','pear','peach','plum'],
+  dairy: ['milk','yoghurt','yogurt','cheese','butter','cream','egg','gouda','cheddar','brie','mozzarella','feta','parmesan','custard'],
+  meat: ['chicken','beef','pork','lamb','ham','bacon','sausage','sausages','turkey','mince','steak','hotdog','salami','chorizo','pepperoni'],
+  frozen: ['frozen','ice cream','pizza','chips','fish finger','goujon','wellington','pie','garlic bread','pollock','cod','salmon','prawn','patties','burgers','peas','broccoli'],
+  bakery: ['bread','roll','bagel','baguette','croissant','wrap','tortilla','pitta','muffin','cake','scone','pastry','crumpet'],
+  pantry: ['pasta','rice','sauce','tin','can','ketchup','mayo','mustard','oil','vinegar','flour','sugar','salt','pepper','spice','herb','noodle','noodles','soup','cereal','oats','chia','tuna','beans','lentil','chickpea','stock','gravy','honey','jam','peanut butter','nutella','syrup'],
+  snacks: ['crisp','chocolate','sweet','candy','skittle','biscuit','cookie','cracker','nut','popcorn','chip','pretzel'],
+  drinks: ['juice','oj','milk','water','tea','coffee','squash','cola','coke','pepsi','lemonade','beer','wine','spirit','protein','smoothie','milkshake'],
+  household: ['paper','foil','cling','toilet','tissue','kitchen roll','bleach','spray','cleaner','detergent','dishwasher','washing','soap','sponge','bin','bag','battery'],
+  pet: ['dog','cat','pet','tripe','bone','treat','litter','kibble'],
+};
+
+function categorize(name) {
+  const n = name.toLowerCase();
+  // Order matters: more specific first
+  for (const [cat, words] of Object.entries(CAT_KEYWORDS)) {
+    if (words.some(w => n.includes(w))) return cat;
+  }
+  return 'other';
+}
+
+function categoryLabel(cat) {
+  if (!cat || !CATEGORIES[cat]) return CATEGORIES.other;
+  return CATEGORIES[cat];
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function haptic(ms = 10) {
+  if (navigator.vibrate) try { navigator.vibrate(ms); } catch(e) {}
+}
+
+function fmtMoney(n) {
+  if (n == null || isNaN(n)) return '£0';
+  return '£' + Number(n).toFixed(2);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// INDEXEDDB LAYER (offline cache + sync queue)
+// ════════════════════════════════════════════════════════════════════════════
+
+const DB_NAME = 'trolley-v4';
+const DB_VERSION = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('shops'))         d.createObjectStore('shops', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('master_items'))  d.createObjectStore('master_items', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('current_list'))  d.createObjectStore('current_list', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('order_map'))     d.createObjectStore('order_map', { keyPath: ['shop_id','name'] });
+      if (!d.objectStoreNames.contains('trips'))         d.createObjectStore('trips', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('app_state'))     d.createObjectStore('app_state', { keyPath: 'key' });
+      if (!d.objectStoreNames.contains('sync_queue'))    d.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('meta'))          d.createObjectStore('meta', { keyPath: 'key' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbAll(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+function dbPut(store, value) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const r = tx.objectStore(store).put(value);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+
+function dbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const r = tx.objectStore(store).delete(key);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+
+function dbClear(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const r = tx.objectStore(store).clear();
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+
+async function dbReplaceAll(store, items) {
+  await dbClear(store);
+  for (const it of items) await dbPut(store, it);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SYNC QUEUE (writes that need to flush when online)
+// ════════════════════════════════════════════════════════════════════════════
+// Operation shape: { op: 'insert'|'update'|'delete'|'upsert', table, payload, match? }
+// payload: row to insert/update/upsert
+// match: { column: value } for update/delete
+
+async function enqueue(op) {
+  await dbPut('sync_queue', { ...op, ts: Date.now() });
+  updateQueueBadge();
+  flushQueue();
+}
+
+async function flushQueue() {
+  if (!supabase || !navigator.onLine) return;
+  const tx = db.transaction('sync_queue', 'readwrite');
+  const store = tx.objectStore('sync_queue');
+  const items = await new Promise((res, rej) => {
+    const r = store.getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+
+  for (const item of items) {
+    try {
+      let q = supabase.from(item.table);
+      if (item.op === 'insert') {
+        const { error } = await q.insert(item.payload);
+        if (error) throw error;
+      } else if (item.op === 'upsert') {
+        const { error } = await q.upsert(item.payload);
+        if (error) throw error;
+      } else if (item.op === 'update') {
+        let qu = q.update(item.payload);
+        for (const [k, v] of Object.entries(item.match)) qu = qu.eq(k, v);
+        const { error } = await qu;
+        if (error) throw error;
+      } else if (item.op === 'delete') {
+        let qu = q.delete();
+        for (const [k, v] of Object.entries(item.match)) {
+          if (v === '__not_null__') qu = qu.not(k, 'is', null);
+          else qu = qu.eq(k, v);
+        }
+        const { error } = await qu;
+        if (error) throw error;
+      }
+      await dbDelete('sync_queue', item.id);
+    } catch (e) {
+      // Leave in queue; will retry next flush
+      console.warn('Sync failed for', item, e);
+      break;
+    }
+  }
+  updateQueueBadge();
+}
+
+async function updateQueueBadge() {
+  const items = await dbAll('sync_queue');
+  const badge = document.getElementById('queueBadge');
+  const qc = document.getElementById('queueCount');
+  if (qc) qc.textContent = items.length;
+  if (badge) {
+    if (items.length > 0) {
+      badge.style.display = 'inline-block';
+      badge.textContent = items.length;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════════
 
 let supabase = null;
 let state = {
-  master: [],         // master_items rows
-  current: [],        // current_list rows
-  orderMap: {},
+  shops: [],
+  master: [],
+  current: [],
+  orderMap: {},        // { shopId: { name: score } }
   trips: [],
+  activeShopId: null,
 };
-let currentView = 'trip';    // 'trip' | 'master' | 'history'
-let currentTab = 'all';       // (trip view) 'all' | 'needed' | 'collected'
+let currentView = 'trip';
+let currentTab = 'all';
 let currentTripOrder = 0;
+let editingItemId = null;
+let lastDeletedItem = null;
+let undoTimer = null;
+let deferredInstallPrompt = null;
+let recognition = null;
+let isListening = false;
 
-// ─── CONFIG ───────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════════════════════
 
 function getConfig() {
   const url = localStorage.getItem('trolley_url');
@@ -966,49 +938,55 @@ function getConfig() {
   return (url && key) ? { url, key } : null;
 }
 
-function saveConfig(url, key) {
-  localStorage.setItem('trolley_url', url);
-  localStorage.setItem('trolley_key', key);
-}
-
 window.connect = async function() {
   const url = document.getElementById('cfgUrl').value.trim();
   const key = document.getElementById('cfgKey').value.trim();
   const status = document.getElementById('cfgStatus');
   const btn = document.getElementById('cfgConnect');
-
-  if (!url || !key) {
-    status.textContent = 'both fields required';
-    status.className = 'config-status error';
-    return;
-  }
+  if (!url || !key) { status.textContent = 'both fields required'; status.className = 'config-status error'; return; }
   btn.disabled = true;
   status.textContent = 'connecting...';
-  status.className = 'config-status';
-
   try {
     const client = createClient(url, key);
-    const { error } = await client.from('master_items').select('id').limit(1);
+    const { error } = await client.from('shops').select('id').limit(1);
     if (error) throw error;
-    saveConfig(url, key);
+    localStorage.setItem('trolley_url', url);
+    localStorage.setItem('trolley_key', key);
     status.textContent = 'connected!';
     status.className = 'config-status ok';
-    setTimeout(() => init(), 400);
+    setTimeout(init, 300);
   } catch (e) {
-    status.textContent = 'connection failed: ' + (e.message || 'check URL/key and that tables exist');
+    status.textContent = 'failed: ' + (e.message || 'check URL/key + tables exist');
     status.className = 'config-status error';
     btn.disabled = false;
   }
 };
 
-window.openSettings = function() {
-  if (!confirm('Disconnect from Supabase? Your data stays in the database.')) return;
+window.disconnect = function() {
+  if (!confirm('Disconnect? Your data stays in Supabase. Local cache will also be cleared.')) return;
   localStorage.removeItem('trolley_url');
   localStorage.removeItem('trolley_key');
+  indexedDB.deleteDatabase(DB_NAME);
   location.reload();
 };
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.clearLocalCache = async function() {
+  if (!confirm('Clear local cache? App will re-download data from Supabase.')) return;
+  await dbClear('shops');
+  await dbClear('master_items');
+  await dbClear('current_list');
+  await dbClear('order_map');
+  await dbClear('trips');
+  await dbClear('app_state');
+  closeSettings();
+  await loadAllFromCloud();
+  render();
+  showToast('cache cleared');
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════════
 
 async function init() {
   const cfg = getConfig();
@@ -1020,90 +998,176 @@ async function init() {
   document.getElementById('configScreen').classList.add('hidden');
   document.getElementById('app').style.display = 'flex';
 
+  db = await openDB();
   supabase = createClient(cfg.url, cfg.key);
-  setSyncStatus('syncing');
-  await loadAll();
-  setSyncStatus('connected');
 
-  supabase
-    .channel('trolley-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_items' }, loadMaster)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'current_list' }, loadCurrent)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_map' }, loadOrderMap)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, loadTrips)
+  // Load local cache first (instant render even offline)
+  await loadAllFromLocal();
+  render();
+  setSyncStatus(navigator.onLine ? 'syncing' : 'offline');
+
+  // Then fetch fresh data from cloud
+  if (navigator.onLine) {
+    await loadAllFromCloud();
+    setSyncStatus('connected');
+  }
+
+  // Realtime subscriptions
+  supabase.channel('trolley-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shops' }, () => syncShops())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_items' }, () => syncMaster())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'current_list' }, () => syncCurrent())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_map' }, () => syncOrderMap())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, () => syncTrips())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, () => syncAppState())
     .subscribe();
 
+  // Flush any queued writes
+  flushQueue();
+
+  // Network listeners
+  window.addEventListener('online', onOnline);
+  window.addEventListener('offline', onOffline);
+  updateQueueBadge();
+}
+
+async function loadAllFromLocal() {
+  state.shops   = await dbAll('shops');
+  state.master  = await dbAll('master_items');
+  state.current = await dbAll('current_list');
+  state.trips   = (await dbAll('trips')).sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+  const om = await dbAll('order_map');
+  state.orderMap = {};
+  for (const row of om) {
+    if (!state.orderMap[row.shop_id]) state.orderMap[row.shop_id] = {};
+    state.orderMap[row.shop_id][row.name] = row.score;
+  }
+  const s = await dbAll('app_state');
+  for (const r of s) {
+    if (r.key === 'active_shop_id') state.activeShopId = Number(r.value);
+  }
+}
+
+async function loadAllFromCloud() {
+  await Promise.all([syncShops(), syncMaster(), syncCurrent(), syncOrderMap(), syncTrips(), syncAppState()]);
+}
+
+async function syncShops() {
+  const { data, error } = await supabase.from('shops').select('*').order('name');
+  if (error) return;
+  state.shops = data || [];
+  await dbReplaceAll('shops', state.shops);
+  if (!state.activeShopId && state.shops.length) {
+    const def = state.shops.find(s => s.is_default) || state.shops[0];
+    state.activeShopId = def.id;
+  }
   render();
+}
+
+async function syncMaster() {
+  const { data, error } = await supabase.from('master_items').select('*');
+  if (error) return;
+  state.master = data || [];
+  await dbReplaceAll('master_items', state.master);
+  render();
+}
+
+async function syncCurrent() {
+  const { data, error } = await supabase.from('current_list').select('*');
+  if (error) return;
+  state.current = data || [];
+  await dbReplaceAll('current_list', state.current);
+  render();
+}
+
+async function syncOrderMap() {
+  const { data, error } = await supabase.from('order_map').select('*');
+  if (error) return;
+  state.orderMap = {};
+  for (const row of (data || [])) {
+    if (!state.orderMap[row.shop_id]) state.orderMap[row.shop_id] = {};
+    state.orderMap[row.shop_id][row.name] = row.score;
+  }
+  await dbReplaceAll('order_map', data || []);
+  render();
+}
+
+async function syncTrips() {
+  const { data, error } = await supabase.from('trips').select('*').order('completed_at', { ascending: false });
+  if (error) return;
+  state.trips = data || [];
+  await dbReplaceAll('trips', state.trips);
+  render();
+}
+
+async function syncAppState() {
+  const { data, error } = await supabase.from('app_state').select('*');
+  if (error) return;
+  for (const r of (data || [])) {
+    if (r.key === 'active_shop_id') state.activeShopId = Number(r.value);
+    await dbPut('app_state', r);
+  }
+  render();
+}
+
+function onOnline() {
+  setSyncStatus('syncing');
+  document.getElementById('netStatus').textContent = 'online';
+  flushQueue().then(() => loadAllFromCloud()).then(() => setSyncStatus('connected'));
+}
+
+function onOffline() {
+  setSyncStatus('offline');
+  document.getElementById('netStatus').textContent = 'offline (queued)';
 }
 
 function setSyncStatus(s) {
   const dot = document.getElementById('syncDot');
-  dot.classList.remove('connected', 'syncing');
-  if (s === 'connected') dot.classList.add('connected');
-  if (s === 'syncing') dot.classList.add('syncing');
+  dot.classList.remove('connected', 'syncing', 'offline');
+  if (s) dot.classList.add(s);
 }
 
-// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+window.forceSync = async function() {
+  setSyncStatus('syncing');
+  await flushQueue();
+  await loadAllFromCloud();
+  setSyncStatus('connected');
+  showToast('synced');
+};
 
-async function loadAll() {
-  await Promise.all([loadMaster(), loadCurrent(), loadOrderMap(), loadTrips()]);
-}
-
-async function loadMaster() {
-  const { data, error } = await supabase.from('master_items').select('*');
-  if (error) { console.error(error); return; }
-  state.master = data || [];
-  render();
-}
-
-async function loadCurrent() {
-  const { data, error } = await supabase.from('current_list').select('*');
-  if (error) { console.error(error); return; }
-  state.current = data || [];
-  render();
-}
-
-async function loadOrderMap() {
-  const { data, error } = await supabase.from('order_map').select('*');
-  if (error) { console.error(error); return; }
-  state.orderMap = {};
-  for (const row of (data || [])) state.orderMap[row.name] = row.score;
-  render();
-}
-
-async function loadTrips() {
-  const { data, error } = await supabase
-    .from('trips')
-    .select('*')
-    .order('completed_at', { ascending: false });
-  if (error) { console.error(error); return; }
-  state.trips = data || [];
-  render();
-}
-
-// ─── ORDER LEARNING ───────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// ROUTE LEARNING (per shop)
+// ════════════════════════════════════════════════════════════════════════════
 
 async function recordCollection(name, orderPos) {
+  if (!state.activeShopId) return;
   const alpha = 0.35;
-  const existing = state.orderMap[name];
+  const shopMap = state.orderMap[state.activeShopId] || {};
+  const existing = shopMap[name];
   const newScore = existing == null ? orderPos : (1 - alpha) * existing + alpha * orderPos;
-  state.orderMap[name] = newScore;
-  await supabase.from('order_map').upsert({ name, score: newScore });
+  if (!state.orderMap[state.activeShopId]) state.orderMap[state.activeShopId] = {};
+  state.orderMap[state.activeShopId][name] = newScore;
+  await dbPut('order_map', { shop_id: state.activeShopId, name, score: newScore });
+  await enqueue({ op: 'upsert', table: 'order_map', payload: { shop_id: state.activeShopId, name, score: newScore } });
 }
 
 function getOrderScore(name) {
   const n = name.toLowerCase().trim();
-  return state.orderMap[n] != null ? state.orderMap[n] : 9999;
+  const m = state.orderMap[state.activeShopId] || {};
+  return m[n] != null ? m[n] : 9999;
 }
 
 function hasLearnedOrder(name) {
-  return state.orderMap[name.toLowerCase().trim()] != null;
+  const m = state.orderMap[state.activeShopId] || {};
+  return m[name.toLowerCase().trim()] != null;
 }
 
 function confidenceLevel(name) {
-  if (state.orderMap[name.toLowerCase().trim()] == null) return 0;
-  if (state.trips.length >= 5) return 2;
-  if (state.trips.length >= 2) return 1;
+  const m = state.orderMap[state.activeShopId] || {};
+  if (m[name.toLowerCase().trim()] == null) return 0;
+  const tripsForShop = state.trips.filter(t => t.shop_id === state.activeShopId).length;
+  if (tripsForShop >= 5) return 2;
+  if (tripsForShop >= 2) return 1;
   return 0;
 }
 
@@ -1112,40 +1176,108 @@ function sortByRoute(items) {
     const sa = getOrderScore(a.name);
     const sb = getOrderScore(b.name);
     if (sa !== sb) return sa - sb;
-    // tiebreaker: more frequently bought first
     const ta = a.times_bought || 0, tb = b.times_bought || 0;
     if (ta !== tb) return tb - ta;
     return a.name.localeCompare(b.name);
   });
 }
 
-// ─── VIEW SWITCHING ───────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// CADENCE / SUGGESTIONS
+// ════════════════════════════════════════════════════════════════════════════
+
+function computeCadenceSuggestions() {
+  // For each master item bought 2+ times, compute average gap in days
+  // between purchases. If days since last purchase >= 0.85 * avg gap, suggest.
+  const purchaseDates = {}; // name -> [Date,...]
+  for (const t of state.trips) {
+    for (const i of (t.items || [])) {
+      if (!purchaseDates[i.name]) purchaseDates[i.name] = [];
+      purchaseDates[i.name].push(new Date(t.completed_at));
+    }
+  }
+
+  const suggestions = [];
+  const now = Date.now();
+  const onListNames = new Set(state.current.filter(c => !c.collected_at).map(c => c.name.toLowerCase()));
+
+  for (const m of state.master) {
+    const dates = (purchaseDates[m.name] || []).sort((a, b) => a - b);
+    if (dates.length < 2) continue;
+
+    // Average gap
+    let totalGap = 0;
+    for (let i = 1; i < dates.length; i++) {
+      totalGap += (dates[i] - dates[i-1]) / (1000 * 60 * 60 * 24);
+    }
+    const avgGap = totalGap / (dates.length - 1);
+
+    const daysSinceLast = (now - dates[dates.length - 1]) / (1000 * 60 * 60 * 24);
+
+    if (daysSinceLast >= 0.85 * avgGap && !onListNames.has(m.name.toLowerCase())) {
+      suggestions.push({
+        name: m.name,
+        id: m.id,
+        daysSinceLast: Math.round(daysSinceLast),
+        avgGap: Math.round(avgGap),
+        urgency: daysSinceLast / avgGap, // sort key
+      });
+    }
+  }
+
+  return suggestions.sort((a, b) => b.urgency - a.urgency).slice(0, 8);
+}
+
+function computeDormantItems() {
+  // Items in master that haven't been bought in 60+ days but have history
+  const purchaseDates = {};
+  for (const t of state.trips) {
+    for (const i of (t.items || [])) {
+      const d = new Date(t.completed_at);
+      if (!purchaseDates[i.name] || d > purchaseDates[i.name]) purchaseDates[i.name] = d;
+    }
+  }
+  const now = Date.now();
+  return state.master.filter(m => {
+    const last = purchaseDates[m.name];
+    if (!last) return false;
+    const days = (now - last) / (1000 * 60 * 60 * 24);
+    return days >= 60;
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// VIEW SWITCHING
+// ════════════════════════════════════════════════════════════════════════════
 
 window.setView = function(v) {
   currentView = v;
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
 
-  // Show/hide chrome
   const tripStats = document.getElementById('tripStats');
   const progressTrack = document.getElementById('progressTrack');
   const subTabs = document.getElementById('subTabs');
   const searchRow = document.getElementById('searchRow');
   const addInput = document.getElementById('addInput');
   const actionsRow = document.getElementById('actionsRow');
+  const searchInput = document.getElementById('searchInput');
+  searchInput.value = '';
 
   if (v === 'trip') {
     tripStats.style.display = 'flex';
     progressTrack.style.display = 'block';
     subTabs.style.display = 'flex';
-    searchRow.style.display = 'none';
-    addInput.placeholder = 'quick add to trip...';
+    searchRow.style.display = 'block';
+    searchInput.placeholder = 'search trip...';
+    addInput.placeholder = 'add to trip...';
     actionsRow.style.display = 'flex';
   } else if (v === 'master') {
     tripStats.style.display = 'none';
     progressTrack.style.display = 'none';
     subTabs.style.display = 'none';
     searchRow.style.display = 'block';
+    searchInput.placeholder = 'search master list...';
     addInput.placeholder = 'add to master list...';
     actionsRow.style.display = 'none';
   } else if (v === 'history') {
@@ -1156,7 +1288,6 @@ window.setView = function(v) {
     addInput.placeholder = '';
     actionsRow.style.display = 'none';
   }
-
   render();
 };
 
@@ -1167,73 +1298,101 @@ window.setTab = function(tab) {
   render();
 };
 
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// ACTIONS
+// ════════════════════════════════════════════════════════════════════════════
+
+async function findOrCreateMaster(name) {
+  let m = state.master.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (m) return m;
+  const newItem = {
+    id: Date.now() + Math.floor(Math.random() * 1000), // temp id; will be replaced by realtime sync
+    name,
+    category: categorize(name),
+    notes: null,
+    est_price: null,
+    is_staple: false,
+    times_bought: 0,
+    last_bought_at: null,
+    added_at: new Date().toISOString(),
+  };
+  state.master.push(newItem);
+  await dbPut('master_items', newItem);
+  // For insert via queue, omit id so Supabase generates it
+  const { id, ...payload } = newItem;
+  await enqueue({ op: 'insert', table: 'master_items', payload });
+  return newItem;
+}
 
 window.addItem = async function() {
   const input = document.getElementById('addInput');
-  const name = input.value.trim();
-  if (!name) return;
-
+  const raw = input.value.trim();
+  if (!raw) return;
   if (currentView === 'history') return;
 
-  setSyncStatus('syncing');
+  // Multi-add: split on commas, "and", semicolons
+  const names = raw.split(/[,;]|\sand\s/i).map(s => s.trim()).filter(Boolean);
+  input.value = '';
+  haptic(8);
 
-  if (currentView === 'master') {
-    // Add to master list only
-    const existing = state.master.find(m => m.name.toLowerCase() === name.toLowerCase());
-    if (existing) { showToast('already in master list'); setSyncStatus('connected'); return; }
-    const { error } = await supabase.from('master_items').insert({ name });
-    if (error) showToast('failed: ' + error.message);
-  } else {
-    // Trip view: add to master if not there, then add to current list
-    let master = state.master.find(m => m.name.toLowerCase() === name.toLowerCase());
-    if (!master) {
-      const { data, error } = await supabase
-        .from('master_items')
-        .insert({ name })
-        .select()
-        .single();
-      if (error) { showToast('failed: ' + error.message); setSyncStatus('connected'); return; }
-      master = data;
-    }
-    const existingOnList = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
-    if (existingOnList) {
-      // Bump quantity
-      await supabase.from('current_list')
-        .update({ quantity: existingOnList.quantity + 1 })
-        .eq('id', existingOnList.id);
+  for (const name of names) {
+    if (currentView === 'master') {
+      const exists = state.master.find(m => m.name.toLowerCase() === name.toLowerCase());
+      if (exists) continue;
+      await findOrCreateMaster(name);
     } else {
-      await supabase.from('current_list').insert({
-        master_item_id: master.id,
-        name: master.name,
-        quantity: 1,
-      });
+      const master = await findOrCreateMaster(name);
+      const existingOnList = state.current.find(c => c.name.toLowerCase() === master.name.toLowerCase() && !c.collected_at);
+      if (existingOnList) {
+        existingOnList.quantity += 1;
+        await dbPut('current_list', existingOnList);
+        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existingOnList.quantity }, match: { id: existingOnList.id } });
+      } else {
+        const newRow = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          master_item_id: master.id,
+          name: master.name,
+          quantity: 1,
+          need_more: false,
+          collected_at: null,
+          added_at: new Date().toISOString(),
+        };
+        state.current.push(newRow);
+        await dbPut('current_list', newRow);
+        const { id, ...payload } = newRow;
+        await enqueue({ op: 'insert', table: 'current_list', payload });
+      }
     }
   }
-
-  input.value = '';
-  setSyncStatus('connected');
+  render();
   input.focus();
 };
 
 window.addToTrip = async function(masterId) {
   const master = state.master.find(m => m.id === masterId);
   if (!master) return;
-  setSyncStatus('syncing');
-
+  haptic(8);
   const existing = state.current.find(c => c.master_item_id === masterId && !c.collected_at);
   if (existing) {
-    await supabase.from('current_list')
-      .update({ quantity: existing.quantity + 1 })
-      .eq('id', existing.id);
+    existing.quantity += 1;
+    await dbPut('current_list', existing);
+    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
   } else {
-    await supabase.from('current_list').insert({
+    const newRow = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
       master_item_id: masterId,
       name: master.name,
       quantity: 1,
-    });
+      need_more: false,
+      collected_at: null,
+      added_at: new Date().toISOString(),
+    };
+    state.current.push(newRow);
+    await dbPut('current_list', newRow);
+    const { id, ...payload } = newRow;
+    await enqueue({ op: 'insert', table: 'current_list', payload });
   }
-  setSyncStatus('connected');
+  render();
 };
 
 window.adjustQty = async function(currentId, delta) {
@@ -1241,132 +1400,232 @@ window.adjustQty = async function(currentId, delta) {
   if (!item) return;
   const newQty = Math.max(1, item.quantity + delta);
   if (newQty === item.quantity) return;
-  setSyncStatus('syncing');
-  await supabase.from('current_list').update({ quantity: newQty }).eq('id', currentId);
-  setSyncStatus('connected');
+  haptic(5);
+  item.quantity = newQty;
+  await dbPut('current_list', item);
+  await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: { id: currentId } });
+  render();
 };
 
 window.adjustMasterQty = async function(masterId, delta) {
-  // Adjust quantity of master item on current list, adding if needed
   const master = state.master.find(m => m.id === masterId);
   if (!master) return;
+  haptic(5);
   const onList = state.current.find(c => c.master_item_id === masterId && !c.collected_at);
-  setSyncStatus('syncing');
   if (!onList && delta > 0) {
-    await supabase.from('current_list').insert({
-      master_item_id: masterId,
-      name: master.name,
-      quantity: 1,
-    });
-  } else if (onList) {
-    const newQty = onList.quantity + delta;
-    if (newQty <= 0) {
-      await supabase.from('current_list').delete().eq('id', onList.id);
-    } else {
-      await supabase.from('current_list').update({ quantity: newQty }).eq('id', onList.id);
-    }
+    return addToTrip(masterId);
   }
-  setSyncStatus('connected');
+  if (!onList) return;
+  const newQty = onList.quantity + delta;
+  if (newQty <= 0) {
+    state.current = state.current.filter(c => c.id !== onList.id);
+    await dbDelete('current_list', onList.id);
+    await enqueue({ op: 'delete', table: 'current_list', match: { id: onList.id } });
+  } else {
+    onList.quantity = newQty;
+    await dbPut('current_list', onList);
+    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: { id: onList.id } });
+  }
+  render();
 };
 
 window.toggleCollected = async function(id) {
   const item = state.current.find(i => i.id === id);
   if (!item) return;
-  setSyncStatus('syncing');
+  haptic(15);
   if (!item.collected_at) {
-    await supabase.from('current_list').update({
-      collected_at: new Date().toISOString(),
-      need_more: false,
-    }).eq('id', id);
+    item.collected_at = new Date().toISOString();
+    item.need_more = false;
+    await dbPut('current_list', item);
+    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: item.collected_at, need_more: false }, match: { id } });
     await recordCollection(item.name.toLowerCase().trim(), currentTripOrder++);
   } else {
-    await supabase.from('current_list').update({ collected_at: null }).eq('id', id);
+    item.collected_at = null;
+    await dbPut('current_list', item);
+    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: null }, match: { id } });
     currentTripOrder = Math.max(0, currentTripOrder - 1);
   }
-  setSyncStatus('connected');
+  render();
   setTimeout(checkAllCollected, 600);
 };
 
 window.toggleNeedMore = async function(id) {
   const item = state.current.find(i => i.id === id);
   if (!item) return;
-  setSyncStatus('syncing');
-  await supabase.from('current_list').update({ need_more: !item.need_more }).eq('id', id);
-  setSyncStatus('connected');
+  haptic(8);
+  item.need_more = !item.need_more;
+  await dbPut('current_list', item);
+  await enqueue({ op: 'update', table: 'current_list', payload: { need_more: item.need_more }, match: { id } });
+  render();
+};
+
+window.toggleStaple = async function(masterId) {
+  const m = state.master.find(x => x.id === masterId);
+  if (!m) return;
+  haptic(8);
+  m.is_staple = !m.is_staple;
+  await dbPut('master_items', m);
+  await enqueue({ op: 'update', table: 'master_items', payload: { is_staple: m.is_staple }, match: { id: masterId } });
+  render();
 };
 
 window.removeFromList = async function(id) {
-  setSyncStatus('syncing');
-  await supabase.from('current_list').delete().eq('id', id);
-  setSyncStatus('connected');
+  const item = state.current.find(c => c.id === id);
+  if (!item) return;
+  lastDeletedItem = { kind: 'current_list', data: { ...item } };
+  state.current = state.current.filter(c => c.id !== id);
+  await dbDelete('current_list', id);
+  await enqueue({ op: 'delete', table: 'current_list', match: { id } });
+  render();
+  haptic(15);
+  showToast('removed "' + item.name + '"', true);
 };
 
 window.removeFromMaster = async function(id) {
-  if (!confirm('Remove this from your master list permanently?')) return;
-  setSyncStatus('syncing');
-  await supabase.from('master_items').delete().eq('id', id);
-  setSyncStatus('connected');
+  const m = state.master.find(x => x.id === id);
+  if (!m) return;
+  if (!confirm('Remove "' + m.name + '" from master list?')) return;
+  lastDeletedItem = { kind: 'master_items', data: { ...m } };
+  state.master = state.master.filter(x => x.id !== id);
+  await dbDelete('master_items', id);
+  await enqueue({ op: 'delete', table: 'master_items', match: { id } });
+  render();
+  haptic(15);
+  showToast('removed "' + m.name + '"', true);
+};
+
+window.undoDelete = async function() {
+  if (!lastDeletedItem) return;
+  const { kind, data } = lastDeletedItem;
+  const { id, ...payload } = data;
+  if (kind === 'current_list') {
+    state.current.push(data);
+    await dbPut('current_list', data);
+    await enqueue({ op: 'insert', table: 'current_list', payload });
+  } else if (kind === 'master_items') {
+    state.master.push(data);
+    await dbPut('master_items', data);
+    await enqueue({ op: 'insert', table: 'master_items', payload });
+  } else if (kind === 'trip') {
+    state.trips.unshift(data);
+    await dbPut('trips', data);
+    await enqueue({ op: 'insert', table: 'trips', payload });
+  }
+  lastDeletedItem = null;
+  clearTimeout(undoTimer);
+  document.getElementById('toast').classList.remove('show');
+  render();
 };
 
 window.clearCollected = async function() {
   const collected = state.current.filter(i => i.collected_at);
   if (!collected.length) { showToast('nothing collected yet'); return; }
-  setSyncStatus('syncing');
-  await supabase.from('current_list').delete().not('collected_at', 'is', null);
-  setSyncStatus('connected');
-  showToast(`cleared ${collected.length} item${collected.length > 1 ? 's' : ''}`);
+  for (const c of collected) {
+    state.current = state.current.filter(x => x.id !== c.id);
+    await dbDelete('current_list', c.id);
+    await enqueue({ op: 'delete', table: 'current_list', match: { id: c.id } });
+  }
+  render();
+  showToast('cleared ' + collected.length + ' item' + (collected.length > 1 ? 's' : ''));
+};
+
+window.addAllStaples = async function() {
+  const staples = state.master.filter(m => m.is_staple);
+  if (!staples.length) { showToast('no staples set yet (long-press an item to mark)'); return; }
+  let added = 0;
+  for (const m of staples) {
+    const existing = state.current.find(c => c.master_item_id === m.id && !c.collected_at);
+    if (existing) continue;
+    const newRow = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      master_item_id: m.id, name: m.name, quantity: 1,
+      need_more: false, collected_at: null, added_at: new Date().toISOString(),
+    };
+    state.current.push(newRow);
+    await dbPut('current_list', newRow);
+    const { id, ...payload } = newRow;
+    await enqueue({ op: 'insert', table: 'current_list', payload });
+    added++;
+  }
+  render();
+  haptic(15);
+  showToast(added > 0 ? `added ${added} staple${added > 1 ? 's' : ''}` : 'all staples already on list');
 };
 
 window.completeTrip = function() {
   const collected = state.current.filter(i => i.collected_at);
-  if (collected.length === 0) {
-    showToast('collect items first');
-    return;
-  }
+  if (collected.length === 0) { showToast('collect items first'); return; }
+  const estCost = collected.reduce((s, i) => {
+    const m = state.master.find(x => x.id === i.master_item_id);
+    if (m && m.est_price) return s + (m.est_price * i.quantity);
+    return s;
+  }, 0);
   document.getElementById('tripSummary').textContent =
-    `Save trip with ${collected.length} item${collected.length !== 1 ? 's' : ''}? Trolley will update its learned route.`;
+    `Save trip with ${collected.length} item${collected.length !== 1 ? 's' : ''}? Est. cost ${fmtMoney(estCost)}.`;
+  document.getElementById('actualCost').value = '';
   document.getElementById('tripComplete').classList.add('show');
 };
 
 window.confirmCompleteTrip = async function() {
   const collected = state.current.filter(i => i.collected_at);
   if (!collected.length) { closeTripComplete(); return; }
+  haptic(20);
 
-  setSyncStatus('syncing');
+  const actualCostInput = document.getElementById('actualCost').value;
+  const actualCost = actualCostInput ? parseFloat(actualCostInput) : null;
 
-  // Save to trips
-  const tripItems = collected.map(i => ({
-    name: i.name,
-    quantity: i.quantity,
-    collected_at: i.collected_at,
-  }));
+  const tripItems = collected.map(i => {
+    const m = state.master.find(x => x.id === i.master_item_id);
+    return {
+      name: i.name,
+      quantity: i.quantity,
+      est_price: m ? m.est_price : null,
+      collected_at: i.collected_at,
+    };
+  });
   const totalQty = collected.reduce((s, i) => s + i.quantity, 0);
+  const shop = state.shops.find(s => s.id === state.activeShopId);
 
-  await supabase.from('trips').insert({
+  const newTrip = {
+    id: Date.now(),
+    shop_id: state.activeShopId,
+    shop_name: shop ? shop.name : null,
+    completed_at: new Date().toISOString(),
     item_count: collected.length,
     total_qty: totalQty,
+    total_cost: actualCost,
     items: tripItems,
-  });
+  };
+  state.trips.unshift(newTrip);
+  await dbPut('trips', newTrip);
+  const { id, ...tripPayload } = newTrip;
+  await enqueue({ op: 'insert', table: 'trips', payload: tripPayload });
 
-  // Increment times_bought on master items
+  // Update master items times_bought + last_bought_at
   for (const c of collected) {
-    if (c.master_item_id) {
-      const master = state.master.find(m => m.id === c.master_item_id);
-      if (master) {
-        await supabase.from('master_items')
-          .update({ times_bought: (master.times_bought || 0) + 1 })
-          .eq('id', c.master_item_id);
-      }
-    }
+    if (!c.master_item_id) continue;
+    const master = state.master.find(m => m.id === c.master_item_id);
+    if (!master) continue;
+    master.times_bought = (master.times_bought || 0) + 1;
+    master.last_bought_at = newTrip.completed_at;
+    await dbPut('master_items', master);
+    await enqueue({
+      op: 'update', table: 'master_items',
+      payload: { times_bought: master.times_bought, last_bought_at: master.last_bought_at },
+      match: { id: c.master_item_id }
+    });
   }
 
-  // Remove collected items from current list
-  await supabase.from('current_list').delete().not('collected_at', 'is', null);
+  // Remove collected
+  for (const c of collected) {
+    state.current = state.current.filter(x => x.id !== c.id);
+    await dbDelete('current_list', c.id);
+    await enqueue({ op: 'delete', table: 'current_list', match: { id: c.id } });
+  }
   currentTripOrder = 0;
-
-  setSyncStatus('connected');
   closeTripComplete();
-  showToast('trip saved to history');
+  render();
+  showToast('trip saved');
 };
 
 window.closeTripComplete = function() {
@@ -1374,11 +1633,15 @@ window.closeTripComplete = function() {
 };
 
 window.deleteTrip = async function(id) {
+  const trip = state.trips.find(t => t.id === id);
+  if (!trip) return;
   if (!confirm('Delete this trip? Route data already learned from it stays.')) return;
-  setSyncStatus('syncing');
-  await supabase.from('trips').delete().eq('id', id);
-  setSyncStatus('connected');
-  showToast('trip deleted');
+  lastDeletedItem = { kind: 'trip', data: { ...trip } };
+  state.trips = state.trips.filter(t => t.id !== id);
+  await dbDelete('trips', id);
+  await enqueue({ op: 'delete', table: 'trips', match: { id } });
+  render();
+  showToast('trip deleted', true);
 };
 
 window.toggleTripExpand = function(id) {
@@ -1392,19 +1655,298 @@ function checkAllCollected() {
   }
 }
 
-// ─── RENDER ───────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// EDIT ITEM
+// ════════════════════════════════════════════════════════════════════════════
+
+window.openEdit = function(masterId) {
+  const m = state.master.find(x => x.id === masterId);
+  if (!m) return;
+  editingItemId = masterId;
+  document.getElementById('editTitle').textContent = 'Edit "' + m.name + '"';
+  document.getElementById('editName').value = m.name;
+  document.getElementById('editCategory').value = m.category || '';
+  document.getElementById('editPrice').value = m.est_price || '';
+  document.getElementById('editNotes').value = m.notes || '';
+  document.getElementById('itemEdit').classList.add('show');
+};
+
+window.closeEdit = function() {
+  document.getElementById('itemEdit').classList.remove('show');
+  editingItemId = null;
+};
+
+window.saveEdit = async function() {
+  const m = state.master.find(x => x.id === editingItemId);
+  if (!m) return;
+  const name = document.getElementById('editName').value.trim();
+  const category = document.getElementById('editCategory').value || null;
+  const priceVal = document.getElementById('editPrice').value;
+  const est_price = priceVal ? parseFloat(priceVal) : null;
+  const notes = document.getElementById('editNotes').value.trim() || null;
+
+  if (!name) { showToast('name required'); return; }
+
+  m.name = name;
+  m.category = category;
+  m.est_price = est_price;
+  m.notes = notes;
+  await dbPut('master_items', m);
+  await enqueue({ op: 'update', table: 'master_items', payload: { name, category, est_price, notes }, match: { id: editingItemId } });
+
+  // Update name in current list rows too
+  for (const c of state.current.filter(c => c.master_item_id === editingItemId)) {
+    c.name = name;
+    await dbPut('current_list', c);
+    await enqueue({ op: 'update', table: 'current_list', payload: { name }, match: { id: c.id } });
+  }
+
+  closeEdit();
+  render();
+};
+
+window.deleteFromEdit = async function() {
+  const id = editingItemId;
+  closeEdit();
+  if (id) removeFromMaster(id);
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// SHOPS
+// ════════════════════════════════════════════════════════════════════════════
+
+window.setActiveShop = async function(shopId) {
+  state.activeShopId = Number(shopId);
+  await dbPut('app_state', { key: 'active_shop_id', value: String(shopId) });
+  await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(shopId) } });
+  render();
+};
+
+window.openShopManager = function() {
+  renderShopList();
+  document.getElementById('shopManager').classList.add('show');
+};
+
+window.closeShopManager = function() {
+  document.getElementById('shopManager').classList.remove('show');
+};
+
+function renderShopList() {
+  const html = state.shops.map(s => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span>${escHtml(s.name)}${s.id === state.activeShopId ? ' <span style="color:var(--accent-bright);font-size:10px">(active)</span>' : ''}</span>
+      ${state.shops.length > 1 ? `<button class="btn-icon danger" onclick="deleteShop(${s.id})">✕</button>` : ''}
+    </div>
+  `).join('');
+  document.getElementById('shopList').innerHTML = html || '<p>no shops yet</p>';
+}
+
+window.addShop = async function() {
+  const name = document.getElementById('newShopName').value.trim();
+  if (!name) return;
+  const newShop = { id: Date.now(), name, is_default: false, created_at: new Date().toISOString() };
+  state.shops.push(newShop);
+  await dbPut('shops', newShop);
+  const { id, ...payload } = newShop;
+  await enqueue({ op: 'insert', table: 'shops', payload });
+  document.getElementById('newShopName').value = '';
+  renderShopList();
+  render();
+};
+
+window.deleteShop = async function(id) {
+  if (state.shops.length <= 1) { showToast('keep at least one shop'); return; }
+  if (!confirm('Delete this shop? Routes learned for it will also be removed.')) return;
+  state.shops = state.shops.filter(s => s.id !== id);
+  await dbDelete('shops', id);
+  await enqueue({ op: 'delete', table: 'shops', match: { id } });
+  if (state.activeShopId === id) {
+    state.activeShopId = state.shops[0].id;
+    await dbPut('app_state', { key: 'active_shop_id', value: String(state.activeShopId) });
+    await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(state.activeShopId) } });
+  }
+  renderShopList();
+  render();
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════════════════════════════════════
+
+window.openSettings = function() {
+  updateQueueBadge();
+  document.getElementById('netStatus').textContent = navigator.onLine ? 'online' : 'offline (queued)';
+  document.getElementById('settingsModal').classList.add('show');
+};
+window.closeSettings = function() {
+  document.getElementById('settingsModal').classList.remove('show');
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// VOICE
+// ════════════════════════════════════════════════════════════════════════════
+
+window.toggleVoice = function() {
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Rec) { showToast('voice not supported on this browser'); return; }
+  if (isListening) { recognition && recognition.stop(); return; }
+  recognition = new Rec();
+  recognition.lang = 'en-GB';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('micBtn').classList.add('listening');
+    haptic(15);
+  };
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    document.getElementById('addInput').value = text;
+    addItem();
+  };
+  recognition.onerror = () => {
+    showToast('voice error');
+  };
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('micBtn').classList.remove('listening');
+  };
+  recognition.start();
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// SWIPE GESTURES
+// ════════════════════════════════════════════════════════════════════════════
+
+let swipeData = null;
+
+document.getElementById('listWrap').addEventListener('touchstart', e => {
+  const item = e.target.closest('.item');
+  if (!item || !item.dataset.swipeable) return;
+  const t = e.touches[0];
+  swipeData = { startX: t.clientX, startY: t.clientY, item, moved: false, id: item.dataset.id };
+}, { passive: true });
+
+document.getElementById('listWrap').addEventListener('touchmove', e => {
+  if (!swipeData) return;
+  const t = e.touches[0];
+  const dx = t.clientX - swipeData.startX;
+  const dy = t.clientY - swipeData.startY;
+  if (Math.abs(dy) > Math.abs(dx)) { swipeData = null; return; }
+  if (Math.abs(dx) > 10) {
+    swipeData.moved = true;
+    swipeData.item.style.transform = `translateX(${dx}px)`;
+    swipeData.item.style.transition = 'none';
+  }
+}, { passive: true });
+
+document.getElementById('listWrap').addEventListener('touchend', e => {
+  if (!swipeData) return;
+  const item = swipeData.item;
+  const dx = parseFloat((item.style.transform.match(/-?\d+/) || [0])[0]);
+  item.style.transition = '';
+  item.style.transform = '';
+  if (swipeData.moved) {
+    const id = Number(swipeData.id);
+    if (dx > 80) {
+      // Swipe right → tick
+      if (item.dataset.kind === 'current') toggleCollected(id);
+    } else if (dx < -80) {
+      // Swipe left → remove
+      if (item.dataset.kind === 'current') removeFromList(id);
+      else if (item.dataset.kind === 'master') removeFromMaster(id);
+    }
+  }
+  const wasMove = swipeData.moved;
+  swipeData = null;
+  if (wasMove) {
+    // prevent click after swipe
+    e.preventDefault();
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// LONG-PRESS FOR EDIT / STAPLE
+// ════════════════════════════════════════════════════════════════════════════
+
+let pressTimer = null;
+let pressStart = null;
+
+document.getElementById('listWrap').addEventListener('pointerdown', e => {
+  const item = e.target.closest('.item');
+  if (!item) return;
+  if (e.target.closest('.item-actions, .qty-controls, .need-btn, .btn-icon, .need-more-btn')) return;
+  pressStart = { x: e.clientX, y: e.clientY };
+  const id = Number(item.dataset.id);
+  const kind = item.dataset.kind;
+  pressTimer = setTimeout(() => {
+    haptic(30);
+    if (kind === 'master') openEdit(id);
+    else if (kind === 'current') {
+      const ci = state.current.find(c => c.id === id);
+      if (ci && ci.master_item_id) openEdit(ci.master_item_id);
+    }
+    pressTimer = null;
+  }, 550);
+});
+
+document.getElementById('listWrap').addEventListener('pointermove', e => {
+  if (!pressStart || !pressTimer) return;
+  const dx = Math.abs(e.clientX - pressStart.x);
+  const dy = Math.abs(e.clientY - pressStart.y);
+  if (dx > 10 || dy > 10) { clearTimeout(pressTimer); pressTimer = null; }
+});
+document.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+document.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+
+// ════════════════════════════════════════════════════════════════════════════
+// PWA INSTALL
+// ════════════════════════════════════════════════════════════════════════════
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+
+window.installApp = async function() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+};
+
+// Service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════════════════════
 
 function render() {
-  // Always update stats (even when hidden, harmless)
+  // Shop selector
+  const sel = document.getElementById('shopSelect');
+  const desired = state.shops.map(s => `<option value="${s.id}"${s.id === state.activeShopId ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('');
+  if (sel.innerHTML !== desired) sel.innerHTML = desired;
+
+  // Stats (trip)
   const total = state.current.length;
   const collected = state.current.filter(i => i.collected_at).length;
   const needMore = state.current.filter(i => i.need_more).length;
   const totalQty = state.current.reduce((s, i) => s + i.quantity, 0);
-
+  const estCost = state.current.reduce((s, i) => {
+    const m = state.master.find(x => x.id === i.master_item_id);
+    if (m && m.est_price) return s + (m.est_price * i.quantity);
+    return s;
+  }, 0);
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statCollected').textContent = collected;
   document.getElementById('statNeedMore').textContent = needMore;
   document.getElementById('statQty').textContent = totalQty;
+  document.getElementById('statCost').textContent = fmtMoney(estCost);
   const pct = total > 0 ? Math.round((collected / total) * 100) : 0;
   document.getElementById('progressFill').style.width = pct + '%';
 
@@ -1415,54 +1957,78 @@ function render() {
 
 function renderTrip() {
   const wrap = document.getElementById('listWrap');
+  const search = (document.getElementById('searchInput').value || '').toLowerCase().trim();
   let visible = state.current;
+  if (search) visible = visible.filter(i => i.name.toLowerCase().includes(search));
   if (currentTab === 'needed') visible = visible.filter(i => i.need_more);
   if (currentTab === 'collected') visible = visible.filter(i => i.collected_at);
 
   const pending = sortByRoute(visible.filter(i => !i.collected_at));
   const done = sortByRoute(visible.filter(i => i.collected_at));
 
+  let html = '';
+
+  // Suggestions (only on All tab, no search, no collected filter)
+  if (currentTab === 'all' && !search) {
+    const suggestions = computeCadenceSuggestions();
+    if (suggestions.length) {
+      html += `
+        <div class="suggest-card">
+          <div class="suggest-title">⏰ might be due</div>
+          <div class="suggest-chips">
+            ${suggestions.map(s => `
+              <button class="suggest-chip" onclick="addToTrip(${s.id})">
+                ${escHtml(s.name)}
+                <span class="due">${s.daysSinceLast}d / ~${s.avgGap}d</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+  }
+
   if (visible.length === 0) {
-    wrap.innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">🛒</div>
-        <div class="empty-title">${currentTab === 'all' ? 'trip is empty' : 'nothing here'}</div>
-        <div class="empty-sub">${currentTab === 'all' ? 'add items, or pick from your master list' : ''}</div>
-      </div>`;
+    html += `<div class="empty"><div class="empty-icon">🛒</div>
+      <div class="empty-title">${currentTab === 'all' ? 'trip is empty' : 'nothing here'}</div>
+      <div class="empty-sub">${currentTab === 'all' ? 'add items, or use + staples' : ''}</div></div>`;
+    wrap.innerHTML = html;
     return;
   }
 
-  let html = '';
   if (pending.length) {
     const hasLearned = pending.some(i => hasLearnedOrder(i.name));
-    html += `<div class="section-label">${hasLearned ? 'sorted by route' : 'to collect'}</div>`;
+    html += `<div class="section-label with-line">${hasLearned ? 'sorted by route' : 'to collect'}</div>`;
     html += pending.map(item => tripItemHTML(item)).join('');
   }
   if (done.length) {
-    html += `<div class="section-label">collected</div>`;
+    html += `<div class="section-label with-line">collected</div>`;
     html += done.map(item => tripItemHTML(item)).join('');
   }
   wrap.innerHTML = html;
 }
 
 function tripItemHTML(item) {
+  const master = state.master.find(m => m.id === item.master_item_id);
   const conf = confidenceLevel(item.name);
   const learned = hasLearnedOrder(item.name);
+  const cat = master && master.category ? categoryLabel(master.category) : null;
   const metaParts = [];
+  if (cat) metaParts.push(`<span>${cat.icon}</span>`);
   if (learned && !item.collected_at) {
     const dots = '●'.repeat(conf + 1) + '○'.repeat(2 - conf);
-    metaParts.push(`<span>${dots} learned</span>`);
+    metaParts.push(`<span>${dots}</span>`);
   }
-  if (item.need_more && !item.collected_at) {
-    metaParts.push(`<span style="color:var(--danger)">⚠ need more</span>`);
-  }
+  if (item.need_more && !item.collected_at) metaParts.push(`<span style="color:var(--danger)">⚠ flag</span>`);
+  if (master && master.est_price) metaParts.push(`<span>${fmtMoney(master.est_price * item.quantity)}</span>`);
 
   return `
-    <div class="item${item.collected_at ? ' collected' : ''}" onclick="toggleCollected(${item.id})">
+    <div class="item${item.collected_at ? ' collected' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
       <div class="check-box"><span class="check-icon">✓</span></div>
       <div class="item-body">
         <div class="item-name">${escHtml(item.name)}</div>
-        ${metaParts.length ? `<div class="item-meta">${metaParts.join('<span style="color:var(--border)">·</span>')}</div>` : ''}
+        ${metaParts.length ? `<div class="item-meta">${metaParts.join('<span class="sep">·</span>')}</div>` : ''}
+        ${master && master.notes ? `<div class="item-notes">${escHtml(master.notes)}</div>` : ''}
       </div>
       <div class="item-actions" onclick="event.stopPropagation()">
         ${!item.collected_at ? `
@@ -1471,13 +2037,8 @@ function tripItemHTML(item) {
             <span class="qty-val">${item.quantity}</span>
             <button class="qty-btn" onclick="adjustQty(${item.id}, 1)">+</button>
           </div>
-          <button class="need-more-btn${item.need_more ? ' active' : ''}" onclick="toggleNeedMore(${item.id})">
-            ${item.need_more ? '⚠' : '+'}
-          </button>
-        ` : `
-          <span class="qty-badge">×${item.quantity}</span>
-        `}
-        <button class="btn-icon danger" onclick="removeFromList(${item.id})">✕</button>
+          <button class="need-more-btn${item.need_more ? ' active' : ''}" onclick="toggleNeedMore(${item.id})">${item.need_more ? '⚠' : '+'}</button>
+        ` : `<span class="qty-badge">×${item.quantity}</span>`}
       </div>
     </div>`;
 }
@@ -1485,69 +2046,95 @@ function tripItemHTML(item) {
 function renderMaster() {
   const wrap = document.getElementById('listWrap');
   const search = (document.getElementById('searchInput').value || '').toLowerCase().trim();
-
   let visible = state.master;
   if (search) visible = visible.filter(m => m.name.toLowerCase().includes(search));
 
-  // Sort by route learning, then frequency
-  visible = sortByRoute(visible);
-
   if (visible.length === 0) {
-    wrap.innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">📋</div>
-        <div class="empty-title">${search ? 'no matches' : 'master list empty'}</div>
-        <div class="empty-sub">${search ? '' : 'add items below — they\'ll persist forever'}</div>
-      </div>`;
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>
+      <div class="empty-title">${search ? 'no matches' : 'master list empty'}</div>
+      <div class="empty-sub">${search ? '' : 'add items below'}</div></div>`;
     return;
   }
 
+  // Group by category, but within each category sort by learned route
+  const byCategory = {};
+  for (const m of visible) {
+    const cat = m.category || 'other';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(m);
+  }
+
+  // Sort categories by lowest order score within them (so category that contains
+  // your first-collected items appears first)
+  const catOrder = Object.keys(byCategory).sort((a, b) => {
+    const minA = Math.min(...byCategory[a].map(m => getOrderScore(m.name)));
+    const minB = Math.min(...byCategory[b].map(m => getOrderScore(m.name)));
+    return minA - minB;
+  });
+
+  // Staples section first
+  const staples = visible.filter(m => m.is_staple);
+  const dormant = computeDormantItems().filter(m => visible.includes(m));
+
   let html = '';
-  const hasLearned = visible.some(m => hasLearnedOrder(m.name));
-  html += `<div class="section-label">${hasLearned ? 'sorted by your route · ' : ''}${visible.length} item${visible.length !== 1 ? 's' : ''}</div>`;
+  if (staples.length && !search) {
+    html += `<div class="section-label with-line">⭐ staples</div>`;
+    html += sortByRoute(staples).map(m => masterItemHTML(m)).join('');
+  }
 
-  html += visible.map(m => {
-    const onList = state.current.find(c => c.master_item_id === m.id && !c.collected_at);
-    const qty = onList ? onList.quantity : 0;
-    const learned = hasLearnedOrder(m.name);
-    const metaParts = [];
-    if (m.times_bought > 0) metaParts.push(`bought ${m.times_bought}×`);
-    if (learned) metaParts.push(`learned`);
+  for (const cat of catOrder) {
+    const items = sortByRoute(byCategory[cat]);
+    const c = categoryLabel(cat);
+    html += `<div class="section-label with-line"><span>${c.icon} ${cat}</span> <span class="cat-badge">${items.length}</span></div>`;
+    html += items.map(m => masterItemHTML(m)).join('');
+  }
 
-    return `
-      <div class="item">
-        <div class="item-body">
-          <div class="item-name">${escHtml(m.name)}</div>
-          ${metaParts.length ? `<div class="item-meta">${metaParts.join(' · ')}</div>` : ''}
-        </div>
-        <div class="item-actions">
-          ${qty > 0 ? `
-            <div class="qty-controls">
-              <button class="qty-btn" onclick="adjustMasterQty(${m.id}, -1)">−</button>
-              <span class="qty-val">${qty}</span>
-              <button class="qty-btn" onclick="adjustMasterQty(${m.id}, 1)">+</button>
-            </div>
-          ` : `
-            <button class="need-btn" onclick="addToTrip(${m.id})">+ need</button>
-          `}
-          <button class="btn-icon danger" onclick="removeFromMaster(${m.id})">✕</button>
-        </div>
-      </div>`;
-  }).join('');
+  if (dormant.length && !search) {
+    html += `<div class="section-label with-line dormant-section">💤 dormant (60+ days)</div>`;
+    html += `<div style="font-size:11px;color:var(--text-dim);padding:4px 0 8px">${dormant.length} item${dormant.length !== 1 ? 's' : ''} not bought recently — consider removing if no longer needed.</div>`;
+  }
 
   wrap.innerHTML = html;
+}
+
+function masterItemHTML(m) {
+  const onList = state.current.find(c => c.master_item_id === m.id && !c.collected_at);
+  const qty = onList ? onList.quantity : 0;
+  const learned = hasLearnedOrder(m.name);
+  const cat = categoryLabel(m.category);
+  const metaParts = [];
+  if (m.times_bought > 0) metaParts.push(`bought ${m.times_bought}×`);
+  if (learned) metaParts.push(`learned`);
+  if (m.est_price) metaParts.push(fmtMoney(m.est_price));
+
+  return `
+    <div class="item" data-id="${m.id}" data-kind="master" data-swipeable="1">
+      <div class="item-body">
+        <div class="item-name">${m.is_staple ? '⭐ ' : ''}${escHtml(m.name)}</div>
+        ${metaParts.length ? `<div class="item-meta">${metaParts.join('<span class="sep">·</span>')}</div>` : ''}
+        ${m.notes ? `<div class="item-notes">${escHtml(m.notes)}</div>` : ''}
+      </div>
+      <div class="item-actions">
+        ${qty > 0 ? `
+          <div class="qty-controls">
+            <button class="qty-btn" onclick="adjustMasterQty(${m.id}, -1)">−</button>
+            <span class="qty-val">${qty}</span>
+            <button class="qty-btn" onclick="adjustMasterQty(${m.id}, 1)">+</button>
+          </div>
+        ` : `<button class="need-btn" onclick="addToTrip(${m.id})">+ need</button>`}
+      </div>
+    </div>`;
 }
 
 function renderHistory() {
   const wrap = document.getElementById('listWrap');
   const trips = state.trips;
 
-  // Compute stats
   const totalTrips = trips.length;
   const totalItems = trips.reduce((s, t) => s + (t.item_count || 0), 0);
   const avgItems = totalTrips > 0 ? (totalItems / totalTrips).toFixed(1) : '0';
+  const totalSpent = trips.reduce((s, t) => s + (Number(t.total_cost) || 0), 0);
 
-  // Most-bought items across all trips
   const buyCount = {};
   for (const t of trips) {
     for (const i of (t.items || [])) {
@@ -1556,64 +2143,79 @@ function renderHistory() {
   }
   const topItem = Object.entries(buyCount).sort((a, b) => b[1] - a[1])[0];
 
-  // Days since last trip
   let daysSince = '–';
   if (trips.length > 0) {
     const last = new Date(trips[0].completed_at);
     const diff = Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24));
-    daysSince = diff === 0 ? 'today' : diff === 1 ? '1 day' : `${diff} days`;
+    daysSince = diff === 0 ? 'today' : diff === 1 ? '1d' : `${diff}d`;
+  }
+
+  // Heatmap: last 14 weeks (98 days)
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const days = 98;
+  const cells = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dStr = d.toISOString().slice(0,10);
+    const count = trips.filter(t => t.completed_at.slice(0,10) === dStr).length;
+    let level = 0;
+    if (count >= 3) level = 3;
+    else if (count === 2) level = 2;
+    else if (count === 1) level = 1;
+    cells.push(level);
   }
 
   let html = `
     <div class="stats-grid">
-      <div class="stats-card">
-        <div class="stats-card-label">Total trips</div>
-        <div class="stats-card-val">${totalTrips}</div>
-      </div>
-      <div class="stats-card">
-        <div class="stats-card-label">Items bought</div>
-        <div class="stats-card-val">${totalItems}</div>
-      </div>
-      <div class="stats-card">
-        <div class="stats-card-label">Avg per trip</div>
-        <div class="stats-card-val">${avgItems}</div>
-      </div>
-      <div class="stats-card">
-        <div class="stats-card-label">Last shop</div>
-        <div class="stats-card-val" style="font-size:18px">${daysSince}</div>
-      </div>
+      <div class="stats-card"><div class="stats-card-label">Trips</div><div class="stats-card-val">${totalTrips}</div></div>
+      <div class="stats-card"><div class="stats-card-label">Items bought</div><div class="stats-card-val">${totalItems}</div></div>
+      <div class="stats-card"><div class="stats-card-label">Avg per trip</div><div class="stats-card-val">${avgItems}</div></div>
+      <div class="stats-card"><div class="stats-card-label">Since last</div><div class="stats-card-val" style="font-size:18px">${daysSince}</div></div>
     </div>
+    ${totalSpent > 0 ? `
+      <div class="stats-card" style="margin-bottom:12px">
+        <div class="stats-card-label">Total spent</div>
+        <div class="stats-card-val" style="font-size:20px">${fmtMoney(totalSpent)}</div>
+        <div class="stats-card-sub">avg ${fmtMoney(totalSpent / Math.max(1, trips.filter(t => t.total_cost).length))} per recorded trip</div>
+      </div>
+    ` : ''}
     ${topItem ? `
-      <div class="stats-card" style="margin-bottom:14px">
+      <div class="stats-card" style="margin-bottom:12px">
         <div class="stats-card-label">Most-bought item</div>
         <div class="stats-card-val" style="font-size:18px">${escHtml(topItem[0])}</div>
         <div class="stats-card-sub">${topItem[1]} units across all trips</div>
       </div>
     ` : ''}
+    <div class="heatmap">
+      <div class="heatmap-title">Last 14 weeks</div>
+      <div class="heatmap-grid">
+        ${cells.map(l => `<div class="heatmap-cell${l ? ' l' + l : ''}"></div>`).join('')}
+      </div>
+      <div class="heatmap-legend"><span>14w ago</span><span>today</span></div>
+    </div>
   `;
 
   if (trips.length === 0) {
-    html += `
-      <div class="empty">
-        <div class="empty-icon">📦</div>
-        <div class="empty-title">no trips yet</div>
-        <div class="empty-sub">complete your first trip and it'll show up here</div>
-      </div>`;
+    html += `<div class="empty"><div class="empty-icon">📦</div>
+      <div class="empty-title">no trips yet</div>
+      <div class="empty-sub">complete your first trip and it'll show here</div></div>`;
   } else {
-    html += `<div class="section-label">trip history</div>`;
+    html += `<div class="section-label with-line">trip history</div>`;
     html += trips.map(t => {
       const date = new Date(t.completed_at);
-      const dateStr = date.toLocaleDateString('en-GB', {
-        weekday: 'short', day: 'numeric', month: 'short'
-      });
+      const dateStr = date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
       const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       const items = t.items || [];
+      const shopLabel = t.shop_name ? ` · ${escHtml(t.shop_name)}` : '';
+      const costLabel = t.total_cost ? ` · ${fmtMoney(t.total_cost)}` : '';
       return `
         <div class="trip-card" id="trip-${t.id}">
           <div class="trip-header" onclick="toggleTripExpand(${t.id})">
             <div>
               <div class="trip-date">${dateStr} <span style="color:var(--text-dim);font-weight:400;font-size:12px">${timeStr}</span></div>
-              <div class="trip-summary">${t.item_count} item${t.item_count !== 1 ? 's' : ''} · ${t.total_qty} total</div>
+              <div class="trip-summary">${t.item_count} item${t.item_count !== 1 ? 's' : ''} · ${t.total_qty} qty${shopLabel}${costLabel}</div>
             </div>
             <button class="trip-delete" onclick="event.stopPropagation();deleteTrip(${t.id})">delete</button>
           </div>
@@ -1621,7 +2223,7 @@ function renderHistory() {
             ${items.map(i => `
               <div class="trip-item-line">
                 <span class="trip-item-name">${escHtml(i.name)}</span>
-                <span class="trip-item-qty">×${i.quantity}</span>
+                <span class="trip-item-qty">×${i.quantity}${i.est_price ? ` · ${fmtMoney(i.est_price * i.quantity)}` : ''}</span>
               </div>
             `).join('')}
           </div>
@@ -1632,19 +2234,25 @@ function renderHistory() {
   wrap.innerHTML = html;
 }
 
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// ════════════════════════════════════════════════════════════════════════════
+// TOAST WITH UNDO
+// ════════════════════════════════════════════════════════════════════════════
 
-let toastTimer;
-function showToast(msg) {
+function showToast(msg, withUndo = false) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  document.getElementById('toastMsg').textContent = msg;
+  const undoBtn = document.getElementById('toastUndo');
+  undoBtn.style.display = withUndo ? 'inline-block' : 'none';
+  undoBtn.onclick = undoDelete;
   t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { t.classList.remove('show'); lastDeletedItem = null; }, withUndo ? 5000 : 2200);
 }
 window.showToast = showToast;
+
+// ════════════════════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════════════════════
 
 init();
 </script>
