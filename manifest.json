@@ -1,11 +1,11 @@
 {
   "name": "Trolley",
   "short_name": "Trolley",
-  "description": "Smart shared shopping list that learns your route",
+  "description": "Smart shared shopping list with master catalogue and learned route",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#0f0f0f",
+  "background_color": "#0d120c",
+  "theme_color": "#0d120c",
   "orientation": "portrait",
   "icons": [
     {

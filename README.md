@@ -1,6 +1,14 @@
 # Trolley 🛒
 
-Smart shared shopping list PWA that learns the order you walk through your shop. Built with Supabase realtime sync.
+Smart shared shopping list PWA with a master catalogue, learned route ordering, and trip history.
+
+## What's new in v3
+
+- **Master list** — every item you might ever buy, persistent. Tap "+ need" to add to current trip.
+- **Quantities** — each item on the current trip has a +/− counter.
+- **Trip history** — completed trips saved with date, items, and quantities. Expandable cards, deletable.
+- **Stats** — total trips, items bought, average per trip, most-bought item, days since last shop.
+- **Theme** — dark Jungle Wood Green to match the Sportage.
 
 ## Files
 - `index.html` — the app
@@ -12,38 +20,47 @@ Smart shared shopping list PWA that learns the order you walk through your shop.
 
 ### 1. Supabase
 
-In your existing Supabase project:
-1. Go to **SQL Editor → New query**
-2. Paste in the contents of `supabase-setup.sql`
-3. Click **Run**
+If you already ran the previous version, **drop the old tables first**:
 
-This creates three tables (`items`, `order_map`, `meta`) and enables realtime + row-level security policies that allow anonymous read/write.
+```sql
+drop table if exists items, order_map, meta cascade;
+```
 
-### 2. Deploy to Vercel
+Then in SQL Editor, paste in `supabase-setup.sql` and run.
 
-1. Create a new GitHub repo, push these files to it
-2. Import the repo into Vercel as a new project
-3. No build settings needed — it's a static site, deploy as-is
-4. Vercel gives you a HTTPS URL
+This creates four tables: `master_items`, `current_list`, `order_map`, `trips`. All with realtime + anonymous RLS.
 
-### 3. Connect the app
+### 2. Vercel
 
-1. Open the deployed URL on your phone
-2. On the connect screen, paste your **Supabase URL** and **anon key**
-   - Find these in Supabase: Settings → API → Project URL and Project API Keys (anon, public)
-3. Tap connect
-4. Use "Add to Home Screen" in your browser to install as a PWA
-5. Repeat steps 1–4 on your partner's phone — they'll see the same list immediately
+New repo, push the files, import to Vercel as a static site. No build settings.
 
-## How the learning works
+### 3. Connect
 
-Every time an item is ticked off, the app records the *order* it was collected during that trip (0 = first, 1 = second, etc). It maintains an exponential weighted average per item — recent trips count more than old ones, so the system adapts if you switch shops or rearrange your route.
+Open the deployed URL on your phone, paste Supabase URL + anon key on the connect screen, install as PWA. Repeat on your partner's phone with the same credentials.
 
-After 2+ trips, items sort by their learned position. The dots next to "learned" show confidence:
-- ●○○ = some data
-- ●●○ = 2+ trips of data
-- ●●● = 5+ trips, well-learned
+## How it works
 
-## Security note
+**Trip view (default)** — what you actually need now. Add items quickly, adjust quantities, tick off as you collect.
 
-The anon key is exposed in the browser (this is normal for Supabase frontend apps), but since RLS allows anonymous access to your tables, anyone with the URL + anon key can read/write your list. Treat them like a household password and don't post screenshots showing them. For a fully locked-down version, add Supabase Auth and tighten the RLS policies.
+**Master view** — your full catalogue of "things we buy". Sorted by your learned route (so you can scan it in the order you'll encounter items in the shop). Tap "+ need" to add to trip with quantity 1, then use +/− to bump.
+
+**History view** — every completed trip with stats. Tap a trip card to expand and see what was bought. Delete button on each trip.
+
+## Workflow
+
+1. First-time: add a bunch of staples to your master list ("milk", "bread", "eggs", "pasta", etc.)
+2. Before a shop: switch to Master, tap "+ need" on what you need, adjust quantities
+3. At the shop: switch to Trip, tick items off as you collect them — order is learned
+4. After 2+ trips, the master list reorders itself by your route, so picking items is faster
+5. When done, hit "finish trip →" to save it to history
+
+## Theme colour note
+
+If "Jungle Wood Green" isn't quite right for your Sportage, the colour variables are at the top of the CSS in `index.html`:
+
+```css
+--accent: #4a6b3e;          /* main green */
+--accent-bright: #6a8f5a;   /* lighter version */
+```
+
+Tweak these to taste.
