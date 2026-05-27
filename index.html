@@ -346,12 +346,17 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 }
 .add-btn:active { transform: scale(0.92); }
 
-.actions-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.actions-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 6px; margin-top: 8px;
+}
+.actions-row .action-btn.primary { grid-column: span 4; }
 .action-btn {
-  flex: 1; min-width: 0; padding: 9px 6px; border-radius: var(--radius); border: 1px solid var(--border);
-  background: var(--surface); color: var(--text-dim); font-size: 10.5px;
-  cursor: pointer; text-align: center; letter-spacing: 0.03em;
-  -webkit-tap-highlight-color: transparent; white-space: nowrap;
+  min-width: 0; padding: 9px 4px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-dim); font-size: 10px;
+  cursor: pointer; text-align: center; letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .action-btn:active { opacity: 0.7; }
 .action-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -2612,7 +2617,9 @@ function tripItemHTML(item) {
   const priceComp = master ? bestPriceForItem(master.id) : null;
 
   const metaParts = [];
-  if (cat) metaParts.push(`<span>${cat.icon}</span>`);
+  // Only show category icon in meta if there's no thumbnail (avoid duplicate)
+  const hasThumb = master && (master.image_url || cat);
+  if (cat && !hasThumb) metaParts.push(`<span>${cat.icon}</span>`);
   if (aisle != null) metaParts.push(`<span class="aisle-pin">aisle ${aisle}</span>`);
   if (learned && !item.collected_at && aisle == null) {
     const dots = '●'.repeat(conf + 1) + '○'.repeat(2 - conf);
