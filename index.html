@@ -45,21 +45,18 @@ html, body {
   overscroll-behavior: none;
 }
 
-button, input { font-family: inherit; color: inherit; }
+button, input, select, textarea { font-family: inherit; color: inherit; }
 
 #app {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  max-width: 520px;
-  margin: 0 auto;
-  position: relative;
+  display: flex; flex-direction: column; height: 100dvh;
+  max-width: 520px; margin: 0 auto; position: relative;
 }
 
-/* ── Config screen ─────────────────────────────────────────────────────── */
+/* ── Config / onboarding ─────────────────────────────────────────────── */
 .config-screen {
   position: fixed; inset: 0; background: var(--bg); z-index: 1000;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px; padding-top: calc(32px + var(--safe-top));
 }
 .config-screen.hidden { display: none; }
 .config-card { max-width: 360px; width: 100%; }
@@ -79,18 +76,50 @@ button, input { font-family: inherit; color: inherit; }
 }
 .config-card input:focus { border-color: var(--accent-bright); }
 .config-card button {
-  width: 100%; margin-top: 20px; padding: 14px; border-radius: var(--radius);
+  width: 100%; margin-top: 16px; padding: 14px; border-radius: var(--radius);
   background: var(--accent); border: none; color: #fff;
   font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px;
+  cursor: pointer;
+}
+.config-card button.secondary {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+  margin-top: 8px;
 }
 .config-card button:disabled { opacity: 0.4; }
 .config-status { margin-top: 12px; font-size: 12px; text-align: center; min-height: 16px; }
 .config-status.error { color: var(--danger); }
 .config-status.ok { color: var(--accent-bright); }
 
-/* ── Header ────────────────────────────────────────────────────────────── */
-header { padding: 16px 18px 0; flex-shrink: 0; }
+/* ── Onboarding tour ─────────────────────────────────────────────────── */
+.tour-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 900;
+  display: none; align-items: center; justify-content: center; padding: 32px;
+  backdrop-filter: blur(6px);
+}
+.tour-overlay.show { display: flex; }
+.tour-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px; max-width: 360px; width: 100%; text-align: center;
+}
+.tour-card .tour-emoji { font-size: 44px; margin-bottom: 14px; }
+.tour-card h2 {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px;
+  color: var(--accent-bright); margin-bottom: 10px;
+}
+.tour-card p { color: var(--text-dim); font-size: 13px; line-height: 1.55; margin-bottom: 20px; }
+.tour-progress { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
+.tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+.tour-dot.active { background: var(--accent-bright); width: 18px; border-radius: 3px; }
+.tour-buttons { display: flex; gap: 8px; }
+.tour-btn {
+  flex: 1; padding: 12px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); font-size: 13px;
+  font-family: 'Syne', sans-serif; font-weight: 600; cursor: pointer;
+}
+.tour-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* ── Header ──────────────────────────────────────────────────────────── */
+header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--safe-top)); }
 .header-top {
   display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
 }
@@ -98,13 +127,10 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px;
   letter-spacing: -0.5px; color: var(--accent-bright);
 }
-.header-meta {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11px; color: var(--text-dim);
-}
+.header-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+
 .sync-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
-  transition: background 0.3s;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted); transition: background 0.3s;
 }
 .sync-dot.connected { background: var(--accent-bright); box-shadow: 0 0 8px var(--accent); }
 .sync-dot.syncing { background: var(--warning); animation: pulse 1s infinite; }
@@ -115,17 +141,12 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   background: none; border: none; color: var(--text-dim); cursor: pointer;
   padding: 4px; font-size: 16px; line-height: 1;
 }
-
 .queue-badge {
   background: var(--warning); color: #000; border-radius: 99px;
   font-size: 9px; padding: 2px 6px; font-weight: 700;
 }
 
-/* Shop selector */
-.shop-bar {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-  font-size: 12px; color: var(--text-dim);
-}
+.shop-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--text-dim); }
 .shop-select {
   flex: 1; background: var(--surface); border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--text);
@@ -145,25 +166,17 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .main-tab.active { background: var(--accent); color: #fff; }
 
-/* Stats */
-.stats-bar {
-  display: flex; gap: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
-}
+.stats-bar { display: flex; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .stat { display: flex; flex-direction: column; gap: 2px; }
-.stat-val {
-  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 17px;
-  color: var(--text); line-height: 1;
-}
-.stat-label {
-  font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em;
-}
+.stat-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 17px; color: var(--text); line-height: 1; }
+.stat-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+
 .progress-track { height: 2px; background: var(--border); border-radius: 99px; margin-top: 6px; overflow: hidden; }
 .progress-fill {
   height: 100%; background: var(--accent-bright); border-radius: 99px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sub tabs */
 .sub-tabs { display: flex; padding: 8px 18px 0; flex-shrink: 0; }
 .sub-tab {
   flex: 1; padding: 7px 4px; text-align: center;
@@ -173,7 +186,6 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .sub-tab.active { color: var(--accent-bright); border-bottom-color: var(--accent-bright); }
 
-/* Search */
 .search-row { padding: 8px 18px 0; flex-shrink: 0; }
 .search-input {
   width: 100%; background: var(--surface); border: 1px solid var(--border);
@@ -182,11 +194,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .search-input:focus { border-color: var(--accent-bright); }
 
-/* List */
-.list-wrap {
-  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 18px 4px;
-  -webkit-overflow-scrolling: touch;
-}
+.list-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 18px 4px; -webkit-overflow-scrolling: touch; }
 .list-wrap::-webkit-scrollbar { display: none; }
 
 .section-label {
@@ -194,46 +202,38 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   color: var(--muted); padding: 10px 0 6px;
   display: flex; align-items: center; gap: 8px;
 }
-.section-label.with-line::after {
-  content: ''; flex: 1; height: 1px; background: var(--border);
-}
-.section-label .cat-badge {
-  background: var(--surface3); padding: 2px 8px; border-radius: 99px;
-  font-size: 9px; color: var(--text-dim);
-}
+.section-label.with-line::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.section-label .cat-badge { background: var(--surface3); padding: 2px 8px; border-radius: 99px; font-size: 9px; color: var(--text-dim); }
 
-.item-row-wrapper {
-  position: relative; margin-bottom: 6px; overflow: hidden; border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.swipe-actions {
-  position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center;
-  padding: 0 18px; pointer-events: none;
-}
-.swipe-actions .swipe-left, .swipe-actions .swipe-right {
-  font-size: 18px; opacity: 0;
-}
-.swipe-left { color: var(--accent-bright); }
-.swipe-right { color: var(--danger); }
-
+/* Items */
 .item {
-  display: flex; align-items: center; gap: 10px; padding: 12px 12px;
+  display: flex; align-items: center; gap: 10px; padding: 12px;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); cursor: pointer;
+  border-radius: var(--radius); margin-bottom: 6px; cursor: pointer;
   position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
   transition: transform 0.2s, opacity 0.2s, background 0.2s;
   touch-action: pan-y;
 }
+.item.dragging {
+  opacity: 0.5; transform: scale(1.02); z-index: 10;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+}
+.item.drag-over { border-top: 2px solid var(--accent-bright); }
 .item::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
   background: var(--accent-bright); transform: scaleY(0);
   transition: transform 0.2s; border-radius: 0 3px 3px 0;
 }
-.item.collected {
-  background: var(--collected); border-color: transparent; opacity: 0.55;
-}
+.item.collected { background: var(--collected); border-color: transparent; opacity: 0.55; }
 .item.collected::before { transform: scaleY(1); }
+.item.low-flagged { border-left: 3px solid var(--danger); }
+
+.item-thumb {
+  width: 36px; height: 36px; border-radius: 6px; background: var(--surface2);
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; overflow: hidden;
+}
+.item-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 .check-box {
   width: 22px; height: 22px; border: 2px solid var(--border); border-radius: 6px;
@@ -254,13 +254,18 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
 .item-meta .sep { color: var(--border); }
+.item-meta .price-tag { color: var(--accent-bright); }
+.item-meta .price-better { color: var(--warning); }
 .item-notes { font-size: 11px; color: var(--text-dim); margin-top: 1px; font-style: italic; }
+.aisle-pin {
+  background: var(--accent-dim); color: var(--accent-bright);
+  padding: 1px 6px; border-radius: 4px; font-weight: 600;
+}
 
 .qty-badge {
   background: var(--accent-dim); color: var(--accent-bright); border: 1px solid var(--accent);
   border-radius: 99px; padding: 2px 8px; font-size: 11px; font-weight: 500; flex-shrink: 0;
 }
-
 .qty-controls {
   display: flex; align-items: center; gap: 2px; background: var(--surface2);
   border-radius: 99px; padding: 2px;
@@ -278,7 +283,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   padding: 6px 12px; border-radius: 99px; border: 1px solid var(--accent);
   background: var(--accent-dim); color: var(--accent-bright);
   font-size: 11px; font-weight: 500; cursor: pointer; letter-spacing: 0.05em;
-  -webkit-tap-highlight-color: transparent; text-transform: uppercase;
+  text-transform: uppercase; -webkit-tap-highlight-color: transparent;
 }
 .need-btn:active { background: var(--accent); color: #fff; }
 
@@ -290,7 +295,6 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   -webkit-tap-highlight-color: transparent;
 }
 .btn-icon:active { transform: scale(0.9); }
-.btn-icon.staple.active { color: var(--warning); border-color: var(--warning); }
 .btn-icon.danger:active { background: var(--danger); color: white; border-color: var(--danger); }
 
 .need-more-btn {
@@ -298,9 +302,13 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   border: 1px solid var(--border); background: none; color: var(--text-dim);
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
 }
-.need-more-btn.active {
-  background: rgba(196, 80, 80, 0.15); border-color: var(--danger); color: var(--danger);
+.need-more-btn.active { background: rgba(196, 80, 80, 0.15); border-color: var(--danger); color: var(--danger); }
+
+.drag-handle {
+  color: var(--muted); cursor: grab; padding: 4px 2px;
+  font-size: 14px; touch-action: none; user-select: none;
 }
+.drag-handle:active { cursor: grabbing; }
 
 /* Add area */
 .add-area {
@@ -315,14 +323,22 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .add-input::placeholder { color: var(--muted); }
 .add-input:focus { border-color: var(--accent-bright); }
+
 .icon-control-btn {
   width: 46px; height: 46px; border-radius: var(--radius); flex-shrink: 0;
   background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
-  font-size: 17px; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  font-size: 17px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.icon-control-btn.active { color: var(--danger); border-color: var(--danger); }
 .icon-control-btn:active { transform: scale(0.94); }
+.icon-control-btn.listening {
+  background: var(--danger); color: #fff; border-color: var(--danger);
+  animation: pulse-mic 1s infinite;
+}
+@keyframes pulse-mic {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 80, 80, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(196, 80, 80, 0); }
+}
+
 .add-btn {
   width: 46px; height: 46px; border-radius: var(--radius); background: var(--accent);
   border: none; color: #fff; font-size: 22px; font-weight: bold;
@@ -330,26 +346,30 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .add-btn:active { transform: scale(0.92); }
 
-.actions-row { display: flex; gap: 8px; margin-top: 8px; }
+.actions-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .action-btn {
-  flex: 1; padding: 9px; border-radius: var(--radius); border: 1px solid var(--border);
-  background: var(--surface); color: var(--text-dim); font-size: 11px;
+  flex: 1; min-width: 0; padding: 9px 6px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-dim); font-size: 10.5px;
   cursor: pointer; text-align: center; letter-spacing: 0.03em;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent; white-space: nowrap;
 }
 .action-btn:active { opacity: 0.7; }
 .action-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.action-btn.primary.glow {
+  animation: glow 1.5s infinite;
+  box-shadow: 0 0 12px var(--accent-bright);
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 6px var(--accent); }
+  50% { box-shadow: 0 0 16px var(--accent-bright); }
+}
 
-/* Empty */
 .empty { text-align: center; padding: 40px 20px; color: var(--text-dim); }
 .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
-.empty-title {
-  font-family: 'Syne', sans-serif; font-size: 15px;
-  color: var(--text-dim); margin-bottom: 4px;
-}
+.empty-title { font-family: 'Syne', sans-serif; font-size: 15px; color: var(--text-dim); margin-bottom: 4px; }
 .empty-sub { font-size: 11px; color: var(--muted); }
 
-/* Suggestions card */
+/* Suggestions */
 .suggest-card {
   background: linear-gradient(135deg, var(--accent-dim), transparent);
   border: 1px solid var(--accent); border-radius: var(--radius);
@@ -357,7 +377,8 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .suggest-title {
   font-size: 11px; color: var(--accent-bright); text-transform: uppercase;
-  letter-spacing: 0.08em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  letter-spacing: 0.08em; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
 }
 .suggest-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .suggest-chip {
@@ -368,77 +389,46 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .suggest-chip:active { background: var(--accent); color: #fff; }
 .suggest-chip .due { color: var(--warning); font-size: 9px; }
+.suggest-add-all {
+  background: var(--accent); border: none; color: #fff;
+  font-size: 10px; padding: 4px 10px; border-radius: 99px;
+  cursor: pointer; text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent;
+}
 
-/* Stats cards (history) */
+/* Stats / heatmap */
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.stats-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px;
-}
-.stats-card-label {
-  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--text-dim); margin-bottom: 4px;
-}
-.stats-card-val {
-  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px;
-  color: var(--accent-bright); line-height: 1.1;
-}
+.stats-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.stats-card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 4px; }
+.stats-card-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: var(--accent-bright); line-height: 1.1; }
 .stats-card-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
 
-/* Heatmap */
-.heatmap {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px; margin-bottom: 12px;
-}
-.heatmap-title {
-  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--text-dim); margin-bottom: 10px;
-}
-.heatmap-grid {
-  display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px;
-}
-.heatmap-cell {
-  aspect-ratio: 1; border-radius: 2px; background: var(--surface2);
-}
+.heatmap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
+.heatmap-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 10px; }
+.heatmap-grid { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; }
+.heatmap-cell { aspect-ratio: 1; border-radius: 2px; background: var(--surface2); }
 .heatmap-cell.l1 { background: rgba(106, 143, 90, 0.3); }
 .heatmap-cell.l2 { background: rgba(106, 143, 90, 0.6); }
 .heatmap-cell.l3 { background: var(--accent-bright); }
-.heatmap-legend {
-  display: flex; justify-content: space-between; margin-top: 8px;
-  font-size: 9px; color: var(--muted);
-}
+.heatmap-legend { display: flex; justify-content: space-between; margin-top: 8px; font-size: 9px; color: var(--muted); }
 
-/* Trip cards */
-.trip-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px; margin-bottom: 8px;
-}
-.trip-header {
-  display: flex; justify-content: space-between; align-items: center;
-  cursor: pointer; gap: 8px;
-}
-.trip-date {
-  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--text);
-}
+.trip-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+.trip-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; gap: 8px; }
+.trip-date { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--text); }
 .trip-summary { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-.trip-items {
-  display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
-}
+.trip-items { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .trip-card.expanded .trip-items { display: block; }
-.trip-item-line {
-  display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px;
-}
+.trip-item-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
 .trip-item-name { color: var(--text); }
 .trip-item-qty { color: var(--text-dim); }
 .trip-delete {
   background: none; border: none; color: var(--danger); font-size: 11px;
-  cursor: pointer; padding: 4px 8px; border-radius: 6px;
-  -webkit-tap-highlight-color: transparent;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px; -webkit-tap-highlight-color: transparent;
 }
 
 /* Toast */
 .toast {
-  position: fixed; bottom: 100px; left: 50%;
+  position: fixed; bottom: 110px; left: 50%;
   transform: translateX(-50%) translateY(20px);
   background: var(--surface2); border: 1px solid var(--border);
   color: var(--text); padding: 10px 16px; border-radius: 99px;
@@ -452,7 +442,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 
-/* Modal */
+/* Modals */
 .modal-bg {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
   z-index: 200; align-items: center; justify-content: center; padding: 24px;
@@ -461,8 +451,8 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 .modal-bg.show { display: flex; }
 .modal-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 24px; max-width: 340px; width: 100%;
-  max-height: 80vh; overflow-y: auto;
+  border-radius: 16px; padding: 24px; max-width: 380px; width: 100%;
+  max-height: 88vh; overflow-y: auto;
 }
 .modal-card h2 {
   font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px;
@@ -470,15 +460,13 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 }
 .modal-card p { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
 .modal-card .modal-row { margin-bottom: 12px; }
-.modal-card label {
-  display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--text-dim); margin-bottom: 4px;
-}
+.modal-card label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 4px; }
 .modal-card input, .modal-card select, .modal-card textarea {
   width: 100%; background: var(--surface2); border: 1px solid var(--border);
   border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text);
   font-family: inherit; outline: none; -webkit-appearance: none;
 }
+.modal-card textarea { resize: vertical; min-height: 80px; }
 .modal-card select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23889384' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px;
@@ -493,7 +481,16 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
 .modal-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .modal-btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 
-/* Install prompt banner */
+.row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* QR code container */
+.qr-container {
+  background: #fff; padding: 16px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; margin: 12px 0;
+}
+.qr-container canvas { max-width: 100%; height: auto; }
+
+/* Install banner */
 .install-banner {
   display: none; background: var(--accent); color: #fff;
   padding: 8px 14px; text-align: center; font-size: 12px;
@@ -505,30 +502,52 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   padding: 4px 10px; border-radius: 99px; font-size: 11px; cursor: pointer;
 }
 
-/* Mic listening indicator */
-.icon-control-btn.listening {
-  background: var(--danger); color: #fff; border-color: var(--danger);
-  animation: pulse-mic 1s infinite;
+/* Barcode scanner overlay */
+.scanner-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+  z-index: 500; flex-direction: column; align-items: center; justify-content: center;
 }
-@keyframes pulse-mic {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 80, 80, 0.5); }
-  50% { box-shadow: 0 0 0 8px rgba(196, 80, 80, 0); }
+.scanner-overlay.show { display: flex; }
+.scanner-video {
+  width: 100%; max-width: 480px; max-height: 60vh; border-radius: 12px; background: #000;
+}
+.scanner-frame {
+  position: absolute; border: 2px solid var(--accent-bright);
+  border-radius: 12px; pointer-events: none;
+  width: 80%; max-width: 360px; height: 30%; box-shadow: 0 0 0 99999px rgba(0,0,0,0.5);
+}
+.scanner-controls { margin-top: 24px; display: flex; gap: 12px; }
+.scanner-close {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 12px 24px; border-radius: 99px; font-size: 14px; cursor: pointer;
+}
+.scanner-status {
+  position: absolute; top: 32px; left: 0; right: 0;
+  text-align: center; color: #fff; font-size: 14px;
 }
 
-/* Dormant items section */
+/* Recipe import */
+.recipe-textarea {
+  min-height: 140px !important;
+  font-family: 'DM Mono', monospace;
+}
+
+/* OCR loading */
+.ocr-spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid var(--accent); border-top-color: transparent;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.image-preview { width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; margin-bottom: 12px; background: var(--surface2); }
+
 .dormant-section { opacity: 0.7; }
-
-/* Category section headers */
-.cat-icon {
-  width: 14px; height: 14px; border-radius: 3px; display: inline-block;
-  margin-right: 6px; vertical-align: -2px;
-}
-
 </style>
 </head>
 <body>
 
-<!-- Config screen -->
+<!-- Connect screen -->
 <div class="config-screen" id="configScreen">
   <div class="config-card">
     <h1>trolley</h1>
@@ -538,7 +557,22 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
     <label>Anon Key</label>
     <input type="text" id="cfgKey" placeholder="eyJhbG..." autocomplete="off">
     <button id="cfgConnect" onclick="connect()">connect</button>
+    <button class="secondary" onclick="scanShareQR()">📷 scan QR from partner</button>
     <div class="config-status" id="cfgStatus"></div>
+  </div>
+</div>
+
+<!-- Onboarding tour -->
+<div class="tour-overlay" id="tourOverlay">
+  <div class="tour-card">
+    <div class="tour-emoji" id="tourEmoji">🛒</div>
+    <div class="tour-progress" id="tourProgress"></div>
+    <h2 id="tourTitle"></h2>
+    <p id="tourBody"></p>
+    <div class="tour-buttons">
+      <button class="tour-btn" id="tourSkip" onclick="skipTour()">skip</button>
+      <button class="tour-btn primary" id="tourNext" onclick="nextTour()">next</button>
+    </div>
   </div>
 </div>
 
@@ -556,7 +590,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
     <div class="shop-bar">
       <span>shop:</span>
       <select class="shop-select" id="shopSelect" onchange="setActiveShop(this.value)"></select>
-      <button class="icon-btn" onclick="openShopManager()" title="manage shops" style="font-size:14px">+</button>
+      <button class="icon-btn" onclick="openShopManager()" title="manage" style="font-size:14px">+</button>
     </div>
 
     <div class="install-banner" id="installBanner">
@@ -575,11 +609,9 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
       <div class="stat"><div class="stat-val" id="statQty">0</div><div class="stat-label">qty</div></div>
       <div class="stat"><div class="stat-val" id="statCollected">0</div><div class="stat-label">done</div></div>
       <div class="stat"><div class="stat-val" id="statNeedMore">0</div><div class="stat-label">flag</div></div>
-      <div class="stat"><div class="stat-val" id="statCost">£0</div><div class="stat-label">est cost</div></div>
+      <div class="stat"><div class="stat-val" id="statCost">£0</div><div class="stat-label">est</div></div>
     </div>
-    <div class="progress-track" id="progressTrack">
-      <div class="progress-fill" id="progressFill" style="width:0%"></div>
-    </div>
+    <div class="progress-track" id="progressTrack"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
   </header>
 
   <div class="sub-tabs" id="subTabs">
@@ -599,12 +631,15 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
       <input class="add-input" id="addInput" placeholder="add to trip..." maxlength="60"
         onkeydown="if(event.key==='Enter')addItem()">
       <button class="icon-control-btn" id="micBtn" onclick="toggleVoice()" title="voice">🎤</button>
+      <button class="icon-control-btn" id="scanBtn" onclick="openScanner()" title="scan barcode">📷</button>
       <button class="add-btn" onclick="addItem()">+</button>
     </div>
     <div class="actions-row" id="actionsRow">
+      <button class="action-btn" onclick="openRecipeImport()">📋 recipe</button>
       <button class="action-btn" onclick="addAllStaples()">+ staples</button>
+      <button class="action-btn" onclick="suggestNextTrip()">✨ suggest</button>
       <button class="action-btn" onclick="clearCollected()">clear done</button>
-      <button class="action-btn primary" onclick="completeTrip()">finish →</button>
+      <button class="action-btn primary" id="finishTripBtn" onclick="completeTrip()">finish →</button>
     </div>
   </div>
 </div>
@@ -614,7 +649,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<!-- Trip complete modal -->
+<!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
   <div class="modal-card" style="text-align:center">
     <div style="font-size:36px;margin-bottom:8px">🛒</div>
@@ -624,6 +659,11 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
       <label>Actual total (optional)</label>
       <input type="number" step="0.01" id="actualCost" placeholder="0.00">
     </div>
+    <div class="modal-row">
+      <label>Receipt photo (optional — OCR will try to extract items)</label>
+      <input type="file" accept="image/*" capture="environment" id="receiptInput" onchange="handleReceiptUpload(event)">
+      <div id="ocrStatus" style="font-size:11px;color:var(--text-dim);margin-top:6px"></div>
+    </div>
     <div class="modal-btn-row">
       <button class="modal-btn" onclick="closeTripComplete()">keep shopping</button>
       <button class="modal-btn primary" onclick="confirmCompleteTrip()">save</button>
@@ -631,38 +671,42 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   </div>
 </div>
 
-<!-- Item edit modal -->
+<!-- Edit item -->
 <div class="modal-bg" id="itemEdit">
   <div class="modal-card">
     <h2 id="editTitle">Edit item</h2>
+    <img id="editImagePreview" class="image-preview" style="display:none">
     <div class="modal-row">
       <label>Name</label>
       <input type="text" id="editName">
     </div>
-    <div class="modal-row">
-      <label>Category</label>
-      <select id="editCategory">
-        <option value="">— uncategorised —</option>
-        <option value="produce">🥬 Produce</option>
-        <option value="dairy">🥛 Dairy</option>
-        <option value="meat">🥩 Meat</option>
-        <option value="frozen">🧊 Frozen</option>
-        <option value="bakery">🍞 Bakery</option>
-        <option value="pantry">🥫 Pantry</option>
-        <option value="snacks">🍫 Snacks</option>
-        <option value="drinks">🥤 Drinks</option>
-        <option value="household">🧽 Household</option>
-        <option value="pet">🐾 Pet</option>
-        <option value="other">📦 Other</option>
-      </select>
+    <div class="row-2col">
+      <div class="modal-row">
+        <label>Category</label>
+        <select id="editCategory"></select>
+      </div>
+      <div class="modal-row">
+        <label>Default qty</label>
+        <input type="number" min="1" id="editDefaultQty" value="1">
+      </div>
     </div>
-    <div class="modal-row">
-      <label>Est. price (£)</label>
-      <input type="number" step="0.01" id="editPrice" placeholder="0.00">
+    <div class="row-2col">
+      <div class="modal-row">
+        <label>Est. price (£)</label>
+        <input type="number" step="0.01" id="editPrice" placeholder="0.00">
+      </div>
+      <div class="modal-row">
+        <label>Aisle # (optional)</label>
+        <input type="number" id="editAisle" placeholder="auto">
+      </div>
     </div>
     <div class="modal-row">
       <label>Notes (brand, size, etc)</label>
       <input type="text" id="editNotes" placeholder="optional">
+    </div>
+    <div class="modal-row">
+      <label>Image URL (optional)</label>
+      <input type="text" id="editImageUrl" placeholder="https://...">
     </div>
     <div class="modal-btn-row">
       <button class="modal-btn danger" onclick="deleteFromEdit()">delete</button>
@@ -672,7 +716,23 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   </div>
 </div>
 
-<!-- Shop manager modal -->
+<!-- Recipe import -->
+<div class="modal-bg" id="recipeImport">
+  <div class="modal-card">
+    <h2>Import from recipe</h2>
+    <p>Paste a list of ingredients (one per line) or a recipe text. Quantities will be stripped.</p>
+    <div class="modal-row">
+      <label>Ingredients</label>
+      <textarea id="recipeText" class="recipe-textarea" placeholder="2 cups flour&#10;1 tsp salt&#10;500g chicken thighs&#10;3 cloves garlic"></textarea>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="closeRecipeImport()">cancel</button>
+      <button class="modal-btn primary" onclick="importRecipe()">add to trip</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shop manager -->
 <div class="modal-bg" id="shopManager">
   <div class="modal-card">
     <h2>Shops</h2>
@@ -689,14 +749,37 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   </div>
 </div>
 
-<!-- Settings modal -->
+<!-- Categories manager -->
+<div class="modal-bg" id="categoriesManager">
+  <div class="modal-card">
+    <h2>Categories</h2>
+    <p>Add custom categories beyond the defaults.</p>
+    <div id="categoriesList"></div>
+    <div class="modal-row" style="margin-top:14px">
+      <label>New category</label>
+      <div class="row-2col">
+        <input type="text" id="newCatLabel" placeholder="e.g. Baby Stuff">
+        <input type="text" id="newCatIcon" placeholder="emoji" maxlength="2">
+      </div>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="closeCategoriesManager()">close</button>
+      <button class="modal-btn primary" onclick="addCategory()">add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
 <div class="modal-bg" id="settingsModal">
   <div class="modal-card">
     <h2>Settings</h2>
     <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <div class="modal-btn-row" style="flex-direction:column">
+    <div class="modal-btn-row" style="flex-direction:column;gap:8px">
+      <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
+      <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
       <button class="modal-btn" onclick="forceSync()">force sync now</button>
+      <button class="modal-btn" onclick="restartTour()">replay tour</button>
       <button class="modal-btn" onclick="clearLocalCache()">clear local cache</button>
       <button class="modal-btn danger" onclick="disconnect()">disconnect</button>
       <button class="modal-btn" onclick="closeSettings()" style="margin-top:8px">close</button>
@@ -704,53 +787,84 @@ header { padding: 16px 18px 0; flex-shrink: 0; }
   </div>
 </div>
 
+<!-- Share QR -->
+<div class="modal-bg" id="shareQRModal">
+  <div class="modal-card">
+    <h2>Share to partner</h2>
+    <p>Have them open Trolley on their phone, tap "scan QR from partner", and point the camera at this code.</p>
+    <div class="qr-container" id="qrContainer"></div>
+    <p style="font-size:11px;color:var(--muted);text-align:center">Anyone with this code can access the household list. Treat it like a password.</p>
+    <div class="modal-btn-row">
+      <button class="modal-btn primary" onclick="closeShareQR()">done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Barcode scanner -->
+<div class="scanner-overlay" id="scannerOverlay">
+  <div class="scanner-status" id="scannerStatus">Point at a barcode</div>
+  <video class="scanner-video" id="scannerVideo" autoplay playsinline muted></video>
+  <div class="scanner-frame"></div>
+  <div class="scanner-controls">
+    <button class="scanner-close" onclick="closeScanner()">cancel</button>
+  </div>
+</div>
+
+<!-- QR scanner -->
+<div class="scanner-overlay" id="qrScannerOverlay">
+  <div class="scanner-status">Point at your partner's QR code</div>
+  <video class="scanner-video" id="qrScannerVideo" autoplay playsinline muted></video>
+  <div class="scanner-frame"></div>
+  <div class="scanner-controls">
+    <button class="scanner-close" onclick="closeQRScanner()">cancel</button>
+  </div>
+</div>
+
+<script type="module" src="https://esm.sh/qrcode@1.5.3"></script>
+
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import QRCode from 'https://esm.sh/qrcode@1.5.3';
 
 // ════════════════════════════════════════════════════════════════════════════
-// CONSTANTS & HELPERS
+// CONSTANTS
 // ════════════════════════════════════════════════════════════════════════════
 
-const CATEGORIES = {
-  produce:   { icon: '🥬', color: '#6a8f5a' },
-  dairy:     { icon: '🥛', color: '#d4d4a8' },
-  meat:      { icon: '🥩', color: '#c45050' },
-  frozen:    { icon: '🧊', color: '#5a8fa0' },
-  bakery:    { icon: '🍞', color: '#c89058' },
-  pantry:    { icon: '🥫', color: '#a08858' },
-  snacks:    { icon: '🍫', color: '#8b6a4a' },
-  drinks:    { icon: '🥤', color: '#7a9fa8' },
-  household: { icon: '🧽', color: '#9090a0' },
-  pet:       { icon: '🐾', color: '#b88858' },
-  other:     { icon: '📦', color: '#6a6a6a' },
-};
+const BUILTIN_CATEGORIES = [
+  { key: 'produce',   label: 'Produce',   icon: '🥬', sort_order: 10 },
+  { key: 'dairy',     label: 'Dairy',     icon: '🥛', sort_order: 20 },
+  { key: 'meat',      label: 'Meat',      icon: '🥩', sort_order: 30 },
+  { key: 'frozen',    label: 'Frozen',    icon: '🧊', sort_order: 40 },
+  { key: 'bakery',    label: 'Bakery',    icon: '🍞', sort_order: 50 },
+  { key: 'pantry',    label: 'Pantry',    icon: '🥫', sort_order: 60 },
+  { key: 'snacks',    label: 'Snacks',    icon: '🍫', sort_order: 70 },
+  { key: 'drinks',    label: 'Drinks',    icon: '🥤', sort_order: 80 },
+  { key: 'household', label: 'Household', icon: '🧽', sort_order: 90 },
+  { key: 'pet',       label: 'Pet',       icon: '🐾', sort_order: 100 },
+  { key: 'other',     label: 'Other',     icon: '📦', sort_order: 110 },
+];
 
-// Auto-categoriser keyword map
 const CAT_KEYWORDS = {
-  produce: ['cucumber','pepper','tomato','celery','carrot','banana','apple','grape','onion','potato','lemon','lime','orange','salad','lettuce','spinach','kale','avocado','garlic','ginger','mushroom','strawberr','blueberr','raspberr','fruit','veg','herb','basil','coriander','parsley','rocket','squash','aubergine','courgette','leek','cauliflower','beans','beans','pea','broccoli','cabbage','sprout','melon','mango','pineapple','pear','peach','plum'],
+  produce: ['cucumber','pepper','tomato','celery','carrot','banana','apple','grape','onion','potato','lemon','lime','orange','salad','lettuce','spinach','kale','avocado','garlic','ginger','mushroom','strawberr','blueberr','raspberr','fruit','veg','herb','basil','coriander','parsley','rocket','squash','aubergine','courgette','leek','cauliflower','pea','broccoli','cabbage','sprout','melon','mango','pineapple','pear','peach','plum'],
   dairy: ['milk','yoghurt','yogurt','cheese','butter','cream','egg','gouda','cheddar','brie','mozzarella','feta','parmesan','custard'],
-  meat: ['chicken','beef','pork','lamb','ham','bacon','sausage','sausages','turkey','mince','steak','hotdog','salami','chorizo','pepperoni'],
-  frozen: ['frozen','ice cream','pizza','chips','fish finger','goujon','wellington','pie','garlic bread','pollock','cod','salmon','prawn','patties','burgers','peas','broccoli'],
+  meat: ['chicken','beef','pork','lamb','ham','bacon','sausage','turkey','mince','steak','hotdog','salami','chorizo','pepperoni'],
+  frozen: ['frozen','ice cream','pizza','chips','fish finger','goujon','wellington','pie','garlic bread','pollock','cod','salmon','prawn','patties','burgers'],
   bakery: ['bread','roll','bagel','baguette','croissant','wrap','tortilla','pitta','muffin','cake','scone','pastry','crumpet'],
-  pantry: ['pasta','rice','sauce','tin','can','ketchup','mayo','mustard','oil','vinegar','flour','sugar','salt','pepper','spice','herb','noodle','noodles','soup','cereal','oats','chia','tuna','beans','lentil','chickpea','stock','gravy','honey','jam','peanut butter','nutella','syrup'],
-  snacks: ['crisp','chocolate','sweet','candy','skittle','biscuit','cookie','cracker','nut','popcorn','chip','pretzel'],
-  drinks: ['juice','oj','milk','water','tea','coffee','squash','cola','coke','pepsi','lemonade','beer','wine','spirit','protein','smoothie','milkshake'],
+  pantry: ['pasta','rice','sauce','tin','can','ketchup','mayo','mustard','oil','vinegar','flour','sugar','salt','spice','noodle','soup','cereal','oats','chia','tuna','beans','lentil','chickpea','stock','gravy','honey','jam','peanut butter','nutella','syrup'],
+  snacks: ['crisp','chocolate','sweet','candy','skittle','biscuit','cookie','cracker','nut','popcorn','pretzel'],
+  drinks: ['juice','oj','water','tea','coffee','squash','cola','coke','pepsi','lemonade','beer','wine','spirit','protein','smoothie','milkshake'],
   household: ['paper','foil','cling','toilet','tissue','kitchen roll','bleach','spray','cleaner','detergent','dishwasher','washing','soap','sponge','bin','bag','battery'],
   pet: ['dog','cat','pet','tripe','bone','treat','litter','kibble'],
 };
 
+const RECIPE_STOPWORDS = ['cup','cups','tsp','tbsp','tablespoon','teaspoon','g','kg','ml','l','oz','lb','lbs','pound','pounds','ounce','ounces','gram','grams','of','a','an','the','some','few','small','large','medium','fresh','dried','chopped','sliced','minced','diced','crushed','grated','to','taste','optional','for','with','and','or'];
+
 function categorize(name) {
   const n = name.toLowerCase();
-  // Order matters: more specific first
   for (const [cat, words] of Object.entries(CAT_KEYWORDS)) {
     if (words.some(w => n.includes(w))) return cat;
   }
   return 'other';
-}
-
-function categoryLabel(cat) {
-  if (!cat || !CATEGORIES[cat]) return CATEGORIES.other;
-  return CATEGORIES[cat];
 }
 
 function escHtml(s) {
@@ -767,10 +881,10 @@ function fmtMoney(n) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// INDEXEDDB LAYER (offline cache + sync queue)
+// INDEXEDDB
 // ════════════════════════════════════════════════════════════════════════════
 
-const DB_NAME = 'trolley-v4';
+const DB_NAME = 'trolley-v5';
 const DB_VERSION = 1;
 let db = null;
 
@@ -779,14 +893,10 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = e => {
       const d = e.target.result;
-      if (!d.objectStoreNames.contains('shops'))         d.createObjectStore('shops', { keyPath: 'id' });
-      if (!d.objectStoreNames.contains('master_items'))  d.createObjectStore('master_items', { keyPath: 'id' });
-      if (!d.objectStoreNames.contains('current_list'))  d.createObjectStore('current_list', { keyPath: 'id' });
-      if (!d.objectStoreNames.contains('order_map'))     d.createObjectStore('order_map', { keyPath: ['shop_id','name'] });
-      if (!d.objectStoreNames.contains('trips'))         d.createObjectStore('trips', { keyPath: 'id' });
-      if (!d.objectStoreNames.contains('app_state'))     d.createObjectStore('app_state', { keyPath: 'key' });
-      if (!d.objectStoreNames.contains('sync_queue'))    d.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
-      if (!d.objectStoreNames.contains('meta'))          d.createObjectStore('meta', { keyPath: 'key' });
+      ['shops','master_items','current_list','trips','app_state','categories','price_history']
+        .forEach(s => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: 'id' }); });
+      if (!d.objectStoreNames.contains('order_map')) d.createObjectStore('order_map', { keyPath: ['shop_id','name'] });
+      if (!d.objectStoreNames.contains('sync_queue')) d.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -835,11 +945,8 @@ async function dbReplaceAll(store, items) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// SYNC QUEUE (writes that need to flush when online)
+// SYNC QUEUE
 // ════════════════════════════════════════════════════════════════════════════
-// Operation shape: { op: 'insert'|'update'|'delete'|'upsert', table, payload, match? }
-// payload: row to insert/update/upsert
-// match: { column: value } for update/delete
 
 async function enqueue(op) {
   await dbPut('sync_queue', { ...op, ts: Date.now() });
@@ -849,41 +956,24 @@ async function enqueue(op) {
 
 async function flushQueue() {
   if (!supabase || !navigator.onLine) return;
-  const tx = db.transaction('sync_queue', 'readwrite');
-  const store = tx.objectStore('sync_queue');
-  const items = await new Promise((res, rej) => {
-    const r = store.getAll();
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
-
+  const items = await dbAll('sync_queue');
   for (const item of items) {
     try {
       let q = supabase.from(item.table);
-      if (item.op === 'insert') {
-        const { error } = await q.insert(item.payload);
-        if (error) throw error;
-      } else if (item.op === 'upsert') {
-        const { error } = await q.upsert(item.payload);
-        if (error) throw error;
-      } else if (item.op === 'update') {
+      if (item.op === 'insert')   { const { error } = await q.insert(item.payload); if (error) throw error; }
+      else if (item.op === 'upsert') { const { error } = await q.upsert(item.payload); if (error) throw error; }
+      else if (item.op === 'update') {
         let qu = q.update(item.payload);
         for (const [k, v] of Object.entries(item.match)) qu = qu.eq(k, v);
-        const { error } = await qu;
-        if (error) throw error;
+        const { error } = await qu; if (error) throw error;
       } else if (item.op === 'delete') {
         let qu = q.delete();
-        for (const [k, v] of Object.entries(item.match)) {
-          if (v === '__not_null__') qu = qu.not(k, 'is', null);
-          else qu = qu.eq(k, v);
-        }
-        const { error } = await qu;
-        if (error) throw error;
+        for (const [k, v] of Object.entries(item.match)) qu = qu.eq(k, v);
+        const { error } = await qu; if (error) throw error;
       }
       await dbDelete('sync_queue', item.id);
     } catch (e) {
-      // Leave in queue; will retry next flush
-      console.warn('Sync failed for', item, e);
+      console.warn('Sync failed:', item, e);
       break;
     }
   }
@@ -896,12 +986,8 @@ async function updateQueueBadge() {
   const qc = document.getElementById('queueCount');
   if (qc) qc.textContent = items.length;
   if (badge) {
-    if (items.length > 0) {
-      badge.style.display = 'inline-block';
-      badge.textContent = items.length;
-    } else {
-      badge.style.display = 'none';
-    }
+    badge.style.display = items.length > 0 ? 'inline-block' : 'none';
+    badge.textContent = items.length;
   }
 }
 
@@ -911,25 +997,24 @@ async function updateQueueBadge() {
 
 let supabase = null;
 let state = {
-  shops: [],
-  master: [],
-  current: [],
-  orderMap: {},        // { shopId: { name: score } }
-  trips: [],
-  activeShopId: null,
+  shops: [], master: [], current: [], trips: [], orderMap: {},
+  categories: [], priceHistory: [], activeShopId: null,
 };
 let currentView = 'trip';
 let currentTab = 'all';
 let currentTripOrder = 0;
 let editingItemId = null;
-let lastDeletedItem = null;
+let lastDeleted = null;
 let undoTimer = null;
 let deferredInstallPrompt = null;
 let recognition = null;
 let isListening = false;
+let scannerStream = null;
+let scannerDetector = null;
+let qrScannerStream = null;
 
 // ════════════════════════════════════════════════════════════════════════════
-// CONFIG
+// CONFIG / CONNECTION
 // ════════════════════════════════════════════════════════════════════════════
 
 function getConfig() {
@@ -956,28 +1041,26 @@ window.connect = async function() {
     status.className = 'config-status ok';
     setTimeout(init, 300);
   } catch (e) {
-    status.textContent = 'failed: ' + (e.message || 'check URL/key + tables exist');
+    status.textContent = 'failed: ' + (e.message || 'check URL/key + tables');
     status.className = 'config-status error';
     btn.disabled = false;
   }
 };
 
 window.disconnect = function() {
-  if (!confirm('Disconnect? Your data stays in Supabase. Local cache will also be cleared.')) return;
+  if (!confirm('Disconnect? Data stays in Supabase; local cache will be cleared.')) return;
   localStorage.removeItem('trolley_url');
   localStorage.removeItem('trolley_key');
+  localStorage.removeItem('trolley_tour_done');
   indexedDB.deleteDatabase(DB_NAME);
   location.reload();
 };
 
 window.clearLocalCache = async function() {
-  if (!confirm('Clear local cache? App will re-download data from Supabase.')) return;
-  await dbClear('shops');
-  await dbClear('master_items');
-  await dbClear('current_list');
-  await dbClear('order_map');
-  await dbClear('trips');
-  await dbClear('app_state');
+  if (!confirm('Clear local cache and reload?')) return;
+  for (const s of ['shops','master_items','current_list','trips','order_map','app_state','categories','price_history']) {
+    await dbClear(s);
+  }
   closeSettings();
   await loadAllFromCloud();
   render();
@@ -1001,41 +1084,67 @@ async function init() {
   db = await openDB();
   supabase = createClient(cfg.url, cfg.key);
 
-  // Load local cache first (instant render even offline)
   await loadAllFromLocal();
+  ensureBuiltinCategories();
   render();
   setSyncStatus(navigator.onLine ? 'syncing' : 'offline');
 
-  // Then fetch fresh data from cloud
   if (navigator.onLine) {
     await loadAllFromCloud();
     setSyncStatus('connected');
   }
 
-  // Realtime subscriptions
   supabase.channel('trolley-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shops' }, () => syncShops())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_items' }, () => syncMaster())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'current_list' }, () => syncCurrent())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_map' }, () => syncOrderMap())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, () => syncTrips())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, () => syncAppState())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shops' }, syncShops)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_items' }, syncMaster)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'current_list' }, syncCurrent)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_map' }, syncOrderMap)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, syncTrips)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, syncAppState)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, syncCategories)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'price_history' }, syncPriceHistory)
     .subscribe();
 
-  // Flush any queued writes
   flushQueue();
-
-  // Network listeners
   window.addEventListener('online', onOnline);
   window.addEventListener('offline', onOffline);
   updateQueueBadge();
+  populateCategorySelect();
+
+  // Show tour if first time
+  if (!localStorage.getItem('trolley_tour_done')) {
+    setTimeout(startTour, 800);
+  }
+}
+
+function ensureBuiltinCategories() {
+  // If categories table is empty (first load), populate from builtins
+  if (state.categories.length === 0) {
+    state.categories = BUILTIN_CATEGORIES.map((c, i) => ({
+      id: 10000 + i, key: c.key, label: c.label, icon: c.icon,
+      is_builtin: true, sort_order: c.sort_order,
+    }));
+  }
+}
+
+function populateCategorySelect() {
+  const sel = document.getElementById('editCategory');
+  const sorted = [...state.categories].sort((a,b) => a.sort_order - b.sort_order);
+  sel.innerHTML = '<option value="">— uncategorised —</option>' +
+    sorted.map(c => `<option value="${c.key}">${c.icon} ${escHtml(c.label)}</option>`).join('');
+}
+
+function categoryByKey(key) {
+  return state.categories.find(c => c.key === key) || { key: 'other', label: 'Other', icon: '📦' };
 }
 
 async function loadAllFromLocal() {
-  state.shops   = await dbAll('shops');
-  state.master  = await dbAll('master_items');
-  state.current = await dbAll('current_list');
-  state.trips   = (await dbAll('trips')).sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+  state.shops        = await dbAll('shops');
+  state.master       = await dbAll('master_items');
+  state.current      = await dbAll('current_list');
+  state.trips        = (await dbAll('trips')).sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+  state.categories   = await dbAll('categories');
+  state.priceHistory = await dbAll('price_history');
   const om = await dbAll('order_map');
   state.orderMap = {};
   for (const row of om) {
@@ -1049,7 +1158,10 @@ async function loadAllFromLocal() {
 }
 
 async function loadAllFromCloud() {
-  await Promise.all([syncShops(), syncMaster(), syncCurrent(), syncOrderMap(), syncTrips(), syncAppState()]);
+  await Promise.all([
+    syncShops(), syncMaster(), syncCurrent(), syncOrderMap(),
+    syncTrips(), syncAppState(), syncCategories(), syncPriceHistory()
+  ]);
 }
 
 async function syncShops() {
@@ -1105,8 +1217,29 @@ async function syncAppState() {
   if (error) return;
   for (const r of (data || [])) {
     if (r.key === 'active_shop_id') state.activeShopId = Number(r.value);
-    await dbPut('app_state', r);
+    await dbPut('app_state', { id: r.key, ...r });
   }
+  render();
+}
+
+async function syncCategories() {
+  const { data, error } = await supabase.from('categories').select('*').order('sort_order');
+  if (error) { ensureBuiltinCategories(); return; }
+  if (data && data.length) {
+    state.categories = data;
+    await dbReplaceAll('categories', state.categories);
+  } else {
+    ensureBuiltinCategories();
+  }
+  populateCategorySelect();
+  render();
+}
+
+async function syncPriceHistory() {
+  const { data, error } = await supabase.from('price_history').select('*').order('recorded_at', { ascending: false });
+  if (error) return;
+  state.priceHistory = data || [];
+  await dbReplaceAll('price_history', state.priceHistory);
   render();
 }
 
@@ -1136,7 +1269,7 @@ window.forceSync = async function() {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// ROUTE LEARNING (per shop)
+// ROUTE LEARNING
 // ════════════════════════════════════════════════════════════════════════════
 
 async function recordCollection(name, orderPos) {
@@ -1151,20 +1284,22 @@ async function recordCollection(name, orderPos) {
   await enqueue({ op: 'upsert', table: 'order_map', payload: { shop_id: state.activeShopId, name, score: newScore } });
 }
 
-function getOrderScore(name) {
-  const n = name.toLowerCase().trim();
+function getOrderScore(item) {
+  // Manual aisle override takes precedence
+  if (item.aisle_override != null) return item.aisle_override * 1.0;
+  const name = (item.name || '').toLowerCase().trim();
   const m = state.orderMap[state.activeShopId] || {};
-  return m[n] != null ? m[n] : 9999;
+  return m[name] != null ? m[name] : 9999;
 }
 
 function hasLearnedOrder(name) {
   const m = state.orderMap[state.activeShopId] || {};
-  return m[name.toLowerCase().trim()] != null;
+  return m[(name || '').toLowerCase().trim()] != null;
 }
 
 function confidenceLevel(name) {
   const m = state.orderMap[state.activeShopId] || {};
-  if (m[name.toLowerCase().trim()] == null) return 0;
+  if (m[(name || '').toLowerCase().trim()] == null) return 0;
   const tripsForShop = state.trips.filter(t => t.shop_id === state.activeShopId).length;
   if (tripsForShop >= 5) return 2;
   if (tripsForShop >= 2) return 1;
@@ -1173,12 +1308,18 @@ function confidenceLevel(name) {
 
 function sortByRoute(items) {
   return [...items].sort((a, b) => {
-    const sa = getOrderScore(a.name);
-    const sb = getOrderScore(b.name);
+    // If both have manual sort_order set, use it
+    if (a.sort_order != null && b.sort_order != null) return a.sort_order - b.sort_order;
+
+    const masterA = a.master_item_id ? state.master.find(m => m.id === a.master_item_id) : a;
+    const masterB = b.master_item_id ? state.master.find(m => m.id === b.master_item_id) : b;
+    const sa = getOrderScore(masterA || a);
+    const sb = getOrderScore(masterB || b);
     if (sa !== sb) return sa - sb;
-    const ta = a.times_bought || 0, tb = b.times_bought || 0;
+    const ta = (masterA || a).times_bought || 0;
+    const tb = (masterB || b).times_bought || 0;
     if (ta !== tb) return tb - ta;
-    return a.name.localeCompare(b.name);
+    return (a.name || '').localeCompare(b.name || '');
   });
 }
 
@@ -1187,16 +1328,13 @@ function sortByRoute(items) {
 // ════════════════════════════════════════════════════════════════════════════
 
 function computeCadenceSuggestions() {
-  // For each master item bought 2+ times, compute average gap in days
-  // between purchases. If days since last purchase >= 0.85 * avg gap, suggest.
-  const purchaseDates = {}; // name -> [Date,...]
+  const purchaseDates = {};
   for (const t of state.trips) {
     for (const i of (t.items || [])) {
       if (!purchaseDates[i.name]) purchaseDates[i.name] = [];
       purchaseDates[i.name].push(new Date(t.completed_at));
     }
   }
-
   const suggestions = [];
   const now = Date.now();
   const onListNames = new Set(state.current.filter(c => !c.collected_at).map(c => c.name.toLowerCase()));
@@ -1204,32 +1342,23 @@ function computeCadenceSuggestions() {
   for (const m of state.master) {
     const dates = (purchaseDates[m.name] || []).sort((a, b) => a - b);
     if (dates.length < 2) continue;
-
-    // Average gap
     let totalGap = 0;
-    for (let i = 1; i < dates.length; i++) {
-      totalGap += (dates[i] - dates[i-1]) / (1000 * 60 * 60 * 24);
-    }
+    for (let i = 1; i < dates.length; i++) totalGap += (dates[i] - dates[i-1]) / 86400000;
     const avgGap = totalGap / (dates.length - 1);
-
-    const daysSinceLast = (now - dates[dates.length - 1]) / (1000 * 60 * 60 * 24);
-
+    const daysSinceLast = (now - dates[dates.length - 1]) / 86400000;
     if (daysSinceLast >= 0.85 * avgGap && !onListNames.has(m.name.toLowerCase())) {
       suggestions.push({
-        name: m.name,
-        id: m.id,
+        name: m.name, id: m.id,
         daysSinceLast: Math.round(daysSinceLast),
         avgGap: Math.round(avgGap),
-        urgency: daysSinceLast / avgGap, // sort key
+        urgency: daysSinceLast / avgGap,
       });
     }
   }
-
   return suggestions.sort((a, b) => b.urgency - a.urgency).slice(0, 8);
 }
 
 function computeDormantItems() {
-  // Items in master that haven't been bought in 60+ days but have history
   const purchaseDates = {};
   for (const t of state.trips) {
     for (const i of (t.items || [])) {
@@ -1241,9 +1370,47 @@ function computeDormantItems() {
   return state.master.filter(m => {
     const last = purchaseDates[m.name];
     if (!last) return false;
-    const days = (now - last) / (1000 * 60 * 60 * 24);
-    return days >= 60;
+    return (now - last) / 86400000 >= 60;
   });
+}
+
+// Predict quantity for an item based on past trip averages
+function predictQty(masterId) {
+  const m = state.master.find(x => x.id === masterId);
+  if (!m) return 1;
+  if (m.default_qty && m.default_qty > 1) return m.default_qty;
+  // Else look at recent trips
+  const qtys = [];
+  for (const t of state.trips.slice(0, 10)) {
+    for (const i of (t.items || [])) {
+      if (i.name === m.name) qtys.push(i.quantity || 1);
+    }
+  }
+  if (qtys.length === 0) return 1;
+  const avg = qtys.reduce((a,b) => a+b, 0) / qtys.length;
+  return Math.max(1, Math.round(avg));
+}
+
+// Best price across shops for an item
+function bestPriceForItem(masterId) {
+  const prices = state.priceHistory.filter(p => p.master_item_id === masterId);
+  if (prices.length === 0) return null;
+  const byShop = {};
+  for (const p of prices) {
+    if (!byShop[p.shop_id] || new Date(p.recorded_at) > new Date(byShop[p.shop_id].recorded_at)) {
+      byShop[p.shop_id] = p;
+    }
+  }
+  const entries = Object.values(byShop);
+  if (entries.length < 2) return null;
+  const cheapest = entries.reduce((a, b) => a.price < b.price ? a : b);
+  const current = byShop[state.activeShopId];
+  if (!current || current.price <= cheapest.price) return null;
+  const cheapestShop = state.shops.find(s => s.id === cheapest.shop_id);
+  return {
+    saving: current.price - cheapest.price,
+    shop: cheapestShop ? cheapestShop.name : '?',
+  };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1254,40 +1421,22 @@ window.setView = function(v) {
   currentView = v;
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
-
-  const tripStats = document.getElementById('tripStats');
-  const progressTrack = document.getElementById('progressTrack');
-  const subTabs = document.getElementById('subTabs');
-  const searchRow = document.getElementById('searchRow');
+  const ids = ['tripStats','progressTrack','subTabs','searchRow','actionsRow'];
+  const show = {
+    trip:   { tripStats: 1, progressTrack: 1, subTabs: 1, searchRow: 1, actionsRow: 1 },
+    master: { searchRow: 1 },
+    history:{},
+  }[v] || {};
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    el.style.display = show[id] ? (id === 'tripStats' || id === 'actionsRow' || id === 'subTabs' ? 'flex' : 'block') : 'none';
+  }
   const addInput = document.getElementById('addInput');
-  const actionsRow = document.getElementById('actionsRow');
   const searchInput = document.getElementById('searchInput');
   searchInput.value = '';
-
-  if (v === 'trip') {
-    tripStats.style.display = 'flex';
-    progressTrack.style.display = 'block';
-    subTabs.style.display = 'flex';
-    searchRow.style.display = 'block';
-    searchInput.placeholder = 'search trip...';
-    addInput.placeholder = 'add to trip...';
-    actionsRow.style.display = 'flex';
-  } else if (v === 'master') {
-    tripStats.style.display = 'none';
-    progressTrack.style.display = 'none';
-    subTabs.style.display = 'none';
-    searchRow.style.display = 'block';
-    searchInput.placeholder = 'search master list...';
-    addInput.placeholder = 'add to master list...';
-    actionsRow.style.display = 'none';
-  } else if (v === 'history') {
-    tripStats.style.display = 'none';
-    progressTrack.style.display = 'none';
-    subTabs.style.display = 'none';
-    searchRow.style.display = 'none';
-    addInput.placeholder = '';
-    actionsRow.style.display = 'none';
-  }
+  if (v === 'trip')   { searchInput.placeholder = 'search trip...';   addInput.placeholder = 'add to trip...'; }
+  if (v === 'master') { searchInput.placeholder = 'search master...'; addInput.placeholder = 'add to master list...'; }
+  if (v === 'history'){ addInput.placeholder = ''; }
   render();
 };
 
@@ -1299,26 +1448,23 @@ window.setTab = function(tab) {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// ACTIONS
+// ITEM ACTIONS
 // ════════════════════════════════════════════════════════════════════════════
+
+function genId() { return Date.now() + Math.floor(Math.random() * 100000); }
 
 async function findOrCreateMaster(name) {
   let m = state.master.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (m) return m;
   const newItem = {
-    id: Date.now() + Math.floor(Math.random() * 1000), // temp id; will be replaced by realtime sync
-    name,
-    category: categorize(name),
-    notes: null,
-    est_price: null,
-    is_staple: false,
-    times_bought: 0,
-    last_bought_at: null,
+    id: genId(), name, category: categorize(name),
+    notes: null, est_price: null, image_url: null,
+    default_qty: 1, aisle_override: null, last_low_flagged_at: null, sort_order: null,
+    is_staple: false, times_bought: 0, last_bought_at: null,
     added_at: new Date().toISOString(),
   };
   state.master.push(newItem);
   await dbPut('master_items', newItem);
-  // For insert via queue, omit id so Supabase generates it
   const { id, ...payload } = newItem;
   await enqueue({ op: 'insert', table: 'master_items', payload });
   return newItem;
@@ -1327,34 +1473,26 @@ async function findOrCreateMaster(name) {
 window.addItem = async function() {
   const input = document.getElementById('addInput');
   const raw = input.value.trim();
-  if (!raw) return;
-  if (currentView === 'history') return;
-
-  // Multi-add: split on commas, "and", semicolons
+  if (!raw || currentView === 'history') return;
   const names = raw.split(/[,;]|\sand\s/i).map(s => s.trim()).filter(Boolean);
   input.value = '';
   haptic(8);
-
   for (const name of names) {
     if (currentView === 'master') {
-      const exists = state.master.find(m => m.name.toLowerCase() === name.toLowerCase());
-      if (exists) continue;
+      if (state.master.find(m => m.name.toLowerCase() === name.toLowerCase())) continue;
       await findOrCreateMaster(name);
     } else {
       const master = await findOrCreateMaster(name);
-      const existingOnList = state.current.find(c => c.name.toLowerCase() === master.name.toLowerCase() && !c.collected_at);
-      if (existingOnList) {
-        existingOnList.quantity += 1;
-        await dbPut('current_list', existingOnList);
-        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existingOnList.quantity }, match: { id: existingOnList.id } });
+      const existing = state.current.find(c => c.name.toLowerCase() === master.name.toLowerCase() && !c.collected_at);
+      if (existing) {
+        existing.quantity += 1;
+        await dbPut('current_list', existing);
+        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
       } else {
+        const qty = predictQty(master.id);
         const newRow = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          master_item_id: master.id,
-          name: master.name,
-          quantity: 1,
-          need_more: false,
-          collected_at: null,
+          id: genId(), master_item_id: master.id, name: master.name,
+          quantity: qty, need_more: false, collected_at: null,
           added_at: new Date().toISOString(),
         };
         state.current.push(newRow);
@@ -1378,13 +1516,10 @@ window.addToTrip = async function(masterId) {
     await dbPut('current_list', existing);
     await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
   } else {
+    const qty = predictQty(masterId);
     const newRow = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      master_item_id: masterId,
-      name: master.name,
-      quantity: 1,
-      need_more: false,
-      collected_at: null,
+      id: genId(), master_item_id: masterId, name: master.name,
+      quantity: qty, need_more: false, collected_at: null,
       added_at: new Date().toISOString(),
     };
     state.current.push(newRow);
@@ -1408,14 +1543,10 @@ window.adjustQty = async function(currentId, delta) {
 };
 
 window.adjustMasterQty = async function(masterId, delta) {
-  const master = state.master.find(m => m.id === masterId);
-  if (!master) return;
-  haptic(5);
   const onList = state.current.find(c => c.master_item_id === masterId && !c.collected_at);
-  if (!onList && delta > 0) {
-    return addToTrip(masterId);
-  }
+  if (!onList && delta > 0) return addToTrip(masterId);
   if (!onList) return;
+  haptic(5);
   const newQty = onList.quantity + delta;
   if (newQty <= 0) {
     state.current = state.current.filter(c => c.id !== onList.id);
@@ -1446,7 +1577,7 @@ window.toggleCollected = async function(id) {
     currentTripOrder = Math.max(0, currentTripOrder - 1);
   }
   render();
-  setTimeout(checkAllCollected, 600);
+  setTimeout(checkAllCollected, 400);
 };
 
 window.toggleNeedMore = async function(id) {
@@ -1456,6 +1587,16 @@ window.toggleNeedMore = async function(id) {
   item.need_more = !item.need_more;
   await dbPut('current_list', item);
   await enqueue({ op: 'update', table: 'current_list', payload: { need_more: item.need_more }, match: { id } });
+
+  // Update master last_low_flagged_at for "running low" automation
+  if (item.need_more && item.master_item_id) {
+    const m = state.master.find(x => x.id === item.master_item_id);
+    if (m) {
+      m.last_low_flagged_at = new Date().toISOString();
+      await dbPut('master_items', m);
+      await enqueue({ op: 'update', table: 'master_items', payload: { last_low_flagged_at: m.last_low_flagged_at }, match: { id: m.id } });
+    }
+  }
   render();
 };
 
@@ -1472,7 +1613,7 @@ window.toggleStaple = async function(masterId) {
 window.removeFromList = async function(id) {
   const item = state.current.find(c => c.id === id);
   if (!item) return;
-  lastDeletedItem = { kind: 'current_list', data: { ...item } };
+  lastDeleted = { kind: 'current_list', data: { ...item } };
   state.current = state.current.filter(c => c.id !== id);
   await dbDelete('current_list', id);
   await enqueue({ op: 'delete', table: 'current_list', match: { id } });
@@ -1485,7 +1626,7 @@ window.removeFromMaster = async function(id) {
   const m = state.master.find(x => x.id === id);
   if (!m) return;
   if (!confirm('Remove "' + m.name + '" from master list?')) return;
-  lastDeletedItem = { kind: 'master_items', data: { ...m } };
+  lastDeleted = { kind: 'master_items', data: { ...m } };
   state.master = state.master.filter(x => x.id !== id);
   await dbDelete('master_items', id);
   await enqueue({ op: 'delete', table: 'master_items', match: { id } });
@@ -1495,8 +1636,8 @@ window.removeFromMaster = async function(id) {
 };
 
 window.undoDelete = async function() {
-  if (!lastDeletedItem) return;
-  const { kind, data } = lastDeletedItem;
+  if (!lastDeleted) return;
+  const { kind, data } = lastDeleted;
   const { id, ...payload } = data;
   if (kind === 'current_list') {
     state.current.push(data);
@@ -1511,7 +1652,7 @@ window.undoDelete = async function() {
     await dbPut('trips', data);
     await enqueue({ op: 'insert', table: 'trips', payload });
   }
-  lastDeletedItem = null;
+  lastDeleted = null;
   clearTimeout(undoTimer);
   document.getElementById('toast').classList.remove('show');
   render();
@@ -1526,20 +1667,19 @@ window.clearCollected = async function() {
     await enqueue({ op: 'delete', table: 'current_list', match: { id: c.id } });
   }
   render();
-  showToast('cleared ' + collected.length + ' item' + (collected.length > 1 ? 's' : ''));
+  showToast('cleared ' + collected.length);
 };
 
 window.addAllStaples = async function() {
   const staples = state.master.filter(m => m.is_staple);
-  if (!staples.length) { showToast('no staples set yet (long-press an item to mark)'); return; }
+  if (!staples.length) { showToast('no staples set yet — long-press items to mark'); return; }
   let added = 0;
   for (const m of staples) {
-    const existing = state.current.find(c => c.master_item_id === m.id && !c.collected_at);
-    if (existing) continue;
+    if (state.current.find(c => c.master_item_id === m.id && !c.collected_at)) continue;
     const newRow = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      master_item_id: m.id, name: m.name, quantity: 1,
-      need_more: false, collected_at: null, added_at: new Date().toISOString(),
+      id: genId(), master_item_id: m.id, name: m.name,
+      quantity: predictQty(m.id), need_more: false, collected_at: null,
+      added_at: new Date().toISOString(),
     };
     state.current.push(newRow);
     await dbPut('current_list', newRow);
@@ -1552,17 +1692,54 @@ window.addAllStaples = async function() {
   showToast(added > 0 ? `added ${added} staple${added > 1 ? 's' : ''}` : 'all staples already on list');
 };
 
+// "Suggest next trip" — pre-populates list with staples + cadence due + recently-flagged-low
+window.suggestNextTrip = async function() {
+  const staples = state.master.filter(m => m.is_staple);
+  const cadence = computeCadenceSuggestions();
+  const recentlyLow = state.master.filter(m => {
+    if (!m.last_low_flagged_at) return false;
+    const days = (Date.now() - new Date(m.last_low_flagged_at).getTime()) / 86400000;
+    return days <= 14;
+  });
+
+  const toAdd = new Set();
+  for (const m of staples) toAdd.add(m.id);
+  for (const s of cadence) toAdd.add(s.id);
+  for (const m of recentlyLow) toAdd.add(m.id);
+
+  let added = 0;
+  for (const id of toAdd) {
+    const m = state.master.find(x => x.id === id);
+    if (!m) continue;
+    if (state.current.find(c => c.master_item_id === id && !c.collected_at)) continue;
+    const newRow = {
+      id: genId(), master_item_id: id, name: m.name,
+      quantity: predictQty(id), need_more: false, collected_at: null,
+      added_at: new Date().toISOString(),
+    };
+    state.current.push(newRow);
+    await dbPut('current_list', newRow);
+    const { id: _i, ...payload } = newRow;
+    await enqueue({ op: 'insert', table: 'current_list', payload });
+    added++;
+  }
+  render();
+  haptic(20);
+  showToast(added > 0 ? `suggested ${added} items` : 'no suggestions right now');
+};
+
 window.completeTrip = function() {
   const collected = state.current.filter(i => i.collected_at);
   if (collected.length === 0) { showToast('collect items first'); return; }
   const estCost = collected.reduce((s, i) => {
     const m = state.master.find(x => x.id === i.master_item_id);
-    if (m && m.est_price) return s + (m.est_price * i.quantity);
-    return s;
+    return s + (m && m.est_price ? m.est_price * i.quantity : 0);
   }, 0);
   document.getElementById('tripSummary').textContent =
-    `Save trip with ${collected.length} item${collected.length !== 1 ? 's' : ''}? Est. cost ${fmtMoney(estCost)}.`;
+    `Save trip with ${collected.length} item${collected.length !== 1 ? 's' : ''}? Est. ${fmtMoney(estCost)}.`;
   document.getElementById('actualCost').value = '';
+  document.getElementById('ocrStatus').textContent = '';
+  document.getElementById('receiptInput').value = '';
   document.getElementById('tripComplete').classList.add('show');
 };
 
@@ -1570,53 +1747,37 @@ window.confirmCompleteTrip = async function() {
   const collected = state.current.filter(i => i.collected_at);
   if (!collected.length) { closeTripComplete(); return; }
   haptic(20);
-
   const actualCostInput = document.getElementById('actualCost').value;
   const actualCost = actualCostInput ? parseFloat(actualCostInput) : null;
-
   const tripItems = collected.map(i => {
     const m = state.master.find(x => x.id === i.master_item_id);
-    return {
-      name: i.name,
-      quantity: i.quantity,
-      est_price: m ? m.est_price : null,
-      collected_at: i.collected_at,
-    };
+    return { name: i.name, quantity: i.quantity, est_price: m ? m.est_price : null, collected_at: i.collected_at };
   });
   const totalQty = collected.reduce((s, i) => s + i.quantity, 0);
   const shop = state.shops.find(s => s.id === state.activeShopId);
-
   const newTrip = {
-    id: Date.now(),
-    shop_id: state.activeShopId,
-    shop_name: shop ? shop.name : null,
+    id: genId(), shop_id: state.activeShopId, shop_name: shop ? shop.name : null,
     completed_at: new Date().toISOString(),
-    item_count: collected.length,
-    total_qty: totalQty,
-    total_cost: actualCost,
-    items: tripItems,
+    item_count: collected.length, total_qty: totalQty, total_cost: actualCost, items: tripItems,
   };
   state.trips.unshift(newTrip);
   await dbPut('trips', newTrip);
   const { id, ...tripPayload } = newTrip;
   await enqueue({ op: 'insert', table: 'trips', payload: tripPayload });
-
-  // Update master items times_bought + last_bought_at
   for (const c of collected) {
     if (!c.master_item_id) continue;
     const master = state.master.find(m => m.id === c.master_item_id);
     if (!master) continue;
     master.times_bought = (master.times_bought || 0) + 1;
     master.last_bought_at = newTrip.completed_at;
+    master.last_low_flagged_at = null; // clear low flag since just bought
     await dbPut('master_items', master);
     await enqueue({
       op: 'update', table: 'master_items',
-      payload: { times_bought: master.times_bought, last_bought_at: master.last_bought_at },
+      payload: { times_bought: master.times_bought, last_bought_at: master.last_bought_at, last_low_flagged_at: null },
       match: { id: c.master_item_id }
     });
   }
-
-  // Remove collected
   for (const c of collected) {
     state.current = state.current.filter(x => x.id !== c.id);
     await dbDelete('current_list', c.id);
@@ -1628,15 +1789,13 @@ window.confirmCompleteTrip = async function() {
   showToast('trip saved');
 };
 
-window.closeTripComplete = function() {
-  document.getElementById('tripComplete').classList.remove('show');
-};
+window.closeTripComplete = function() { document.getElementById('tripComplete').classList.remove('show'); };
 
 window.deleteTrip = async function(id) {
   const trip = state.trips.find(t => t.id === id);
   if (!trip) return;
-  if (!confirm('Delete this trip? Route data already learned from it stays.')) return;
-  lastDeletedItem = { kind: 'trip', data: { ...trip } };
+  if (!confirm('Delete this trip?')) return;
+  lastDeleted = { kind: 'trip', data: { ...trip } };
   state.trips = state.trips.filter(t => t.id !== id);
   await dbDelete('trips', id);
   await enqueue({ op: 'delete', table: 'trips', match: { id } });
@@ -1645,14 +1804,13 @@ window.deleteTrip = async function(id) {
 };
 
 window.toggleTripExpand = function(id) {
-  document.getElementById('trip-' + id).classList.toggle('expanded');
+  const el = document.getElementById('trip-' + id);
+  if (el) el.classList.toggle('expanded');
 };
 
 function checkAllCollected() {
   const active = state.current.filter(i => !i.collected_at);
-  if (active.length === 0 && state.current.length > 0) {
-    completeTrip();
-  }
+  if (active.length === 0 && state.current.length > 0) completeTrip();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1668,6 +1826,17 @@ window.openEdit = function(masterId) {
   document.getElementById('editCategory').value = m.category || '';
   document.getElementById('editPrice').value = m.est_price || '';
   document.getElementById('editNotes').value = m.notes || '';
+  document.getElementById('editDefaultQty').value = m.default_qty || 1;
+  document.getElementById('editAisle').value = m.aisle_override || '';
+  document.getElementById('editImageUrl').value = m.image_url || '';
+  const preview = document.getElementById('editImagePreview');
+  if (m.image_url) {
+    preview.src = m.image_url;
+    preview.style.display = 'block';
+    preview.onerror = () => { preview.style.display = 'none'; };
+  } else {
+    preview.style.display = 'none';
+  }
   document.getElementById('itemEdit').classList.add('show');
 };
 
@@ -1680,25 +1849,40 @@ window.saveEdit = async function() {
   const m = state.master.find(x => x.id === editingItemId);
   if (!m) return;
   const name = document.getElementById('editName').value.trim();
+  if (!name) { showToast('name required'); return; }
   const category = document.getElementById('editCategory').value || null;
   const priceVal = document.getElementById('editPrice').value;
   const est_price = priceVal ? parseFloat(priceVal) : null;
   const notes = document.getElementById('editNotes').value.trim() || null;
+  const default_qty = Math.max(1, parseInt(document.getElementById('editDefaultQty').value) || 1);
+  const aisleVal = document.getElementById('editAisle').value;
+  const aisle_override = aisleVal ? parseInt(aisleVal) : null;
+  const image_url = document.getElementById('editImageUrl').value.trim() || null;
 
-  if (!name) { showToast('name required'); return; }
-
-  m.name = name;
-  m.category = category;
-  m.est_price = est_price;
-  m.notes = notes;
+  const updates = { name, category, est_price, notes, default_qty, aisle_override, image_url };
+  Object.assign(m, updates);
   await dbPut('master_items', m);
-  await enqueue({ op: 'update', table: 'master_items', payload: { name, category, est_price, notes }, match: { id: editingItemId } });
+  await enqueue({ op: 'update', table: 'master_items', payload: updates, match: { id: editingItemId } });
 
-  // Update name in current list rows too
+  // Update name in current list rows + record price history if price changed
   for (const c of state.current.filter(c => c.master_item_id === editingItemId)) {
-    c.name = name;
-    await dbPut('current_list', c);
-    await enqueue({ op: 'update', table: 'current_list', payload: { name }, match: { id: c.id } });
+    if (c.name !== name) {
+      c.name = name;
+      await dbPut('current_list', c);
+      await enqueue({ op: 'update', table: 'current_list', payload: { name }, match: { id: c.id } });
+    }
+  }
+
+  // Save to price history if price set and changed
+  if (est_price != null && state.activeShopId) {
+    const recent = state.priceHistory.find(p => p.master_item_id === editingItemId && p.shop_id === state.activeShopId);
+    if (!recent || Math.abs(recent.price - est_price) > 0.01) {
+      const ph = { id: genId(), master_item_id: editingItemId, shop_id: state.activeShopId, price: est_price, recorded_at: new Date().toISOString() };
+      state.priceHistory.push(ph);
+      await dbPut('price_history', ph);
+      const { id: _i, ...phPayload } = ph;
+      await enqueue({ op: 'insert', table: 'price_history', payload: phPayload });
+    }
   }
 
   closeEdit();
@@ -1717,19 +1901,13 @@ window.deleteFromEdit = async function() {
 
 window.setActiveShop = async function(shopId) {
   state.activeShopId = Number(shopId);
-  await dbPut('app_state', { key: 'active_shop_id', value: String(shopId) });
+  await dbPut('app_state', { id: 'active_shop_id', key: 'active_shop_id', value: String(shopId) });
   await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(shopId) } });
   render();
 };
 
-window.openShopManager = function() {
-  renderShopList();
-  document.getElementById('shopManager').classList.add('show');
-};
-
-window.closeShopManager = function() {
-  document.getElementById('shopManager').classList.remove('show');
-};
+window.openShopManager = function() { renderShopList(); document.getElementById('shopManager').classList.add('show'); };
+window.closeShopManager = function() { document.getElementById('shopManager').classList.remove('show'); };
 
 function renderShopList() {
   const html = state.shops.map(s => `
@@ -1744,7 +1922,7 @@ function renderShopList() {
 window.addShop = async function() {
   const name = document.getElementById('newShopName').value.trim();
   if (!name) return;
-  const newShop = { id: Date.now(), name, is_default: false, created_at: new Date().toISOString() };
+  const newShop = { id: genId(), name, is_default: false, created_at: new Date().toISOString() };
   state.shops.push(newShop);
   await dbPut('shops', newShop);
   const { id, ...payload } = newShop;
@@ -1756,16 +1934,70 @@ window.addShop = async function() {
 
 window.deleteShop = async function(id) {
   if (state.shops.length <= 1) { showToast('keep at least one shop'); return; }
-  if (!confirm('Delete this shop? Routes learned for it will also be removed.')) return;
+  if (!confirm('Delete this shop and its learned route?')) return;
   state.shops = state.shops.filter(s => s.id !== id);
   await dbDelete('shops', id);
   await enqueue({ op: 'delete', table: 'shops', match: { id } });
   if (state.activeShopId === id) {
     state.activeShopId = state.shops[0].id;
-    await dbPut('app_state', { key: 'active_shop_id', value: String(state.activeShopId) });
+    await dbPut('app_state', { id: 'active_shop_id', key: 'active_shop_id', value: String(state.activeShopId) });
     await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(state.activeShopId) } });
   }
   renderShopList();
+  render();
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// CATEGORIES MANAGER
+// ════════════════════════════════════════════════════════════════════════════
+
+window.openCategoriesManager = function() {
+  closeSettings();
+  renderCategoriesList();
+  document.getElementById('categoriesManager').classList.add('show');
+};
+window.closeCategoriesManager = function() { document.getElementById('categoriesManager').classList.remove('show'); };
+
+function renderCategoriesList() {
+  const sorted = [...state.categories].sort((a,b) => a.sort_order - b.sort_order);
+  document.getElementById('categoriesList').innerHTML = sorted.map(c => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span>${c.icon} ${escHtml(c.label)}${c.is_builtin ? ' <span style="color:var(--muted);font-size:10px">built-in</span>' : ''}</span>
+      ${!c.is_builtin ? `<button class="btn-icon danger" onclick="deleteCategory(${c.id})">✕</button>` : ''}
+    </div>
+  `).join('');
+}
+
+window.addCategory = async function() {
+  const label = document.getElementById('newCatLabel').value.trim();
+  const icon = document.getElementById('newCatIcon').value.trim() || '📦';
+  if (!label) return;
+  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  if (state.categories.find(c => c.key === key)) { showToast('already exists'); return; }
+  const newCat = {
+    id: genId(), key, label, icon, is_builtin: false,
+    sort_order: 200 + state.categories.length, created_at: new Date().toISOString()
+  };
+  state.categories.push(newCat);
+  await dbPut('categories', newCat);
+  const { id, ...payload } = newCat;
+  await enqueue({ op: 'insert', table: 'categories', payload });
+  document.getElementById('newCatLabel').value = '';
+  document.getElementById('newCatIcon').value = '';
+  populateCategorySelect();
+  renderCategoriesList();
+  render();
+};
+
+window.deleteCategory = async function(id) {
+  const c = state.categories.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm('Delete category "' + c.label + '"? Items will become uncategorised.')) return;
+  state.categories = state.categories.filter(x => x.id !== id);
+  await dbDelete('categories', id);
+  await enqueue({ op: 'delete', table: 'categories', match: { id } });
+  populateCategorySelect();
+  renderCategoriesList();
   render();
 };
 
@@ -1778,9 +2010,7 @@ window.openSettings = function() {
   document.getElementById('netStatus').textContent = navigator.onLine ? 'online' : 'offline (queued)';
   document.getElementById('settingsModal').classList.add('show');
 };
-window.closeSettings = function() {
-  document.getElementById('settingsModal').classList.remove('show');
-};
+window.closeSettings = function() { document.getElementById('settingsModal').classList.remove('show'); };
 
 // ════════════════════════════════════════════════════════════════════════════
 // VOICE
@@ -1788,46 +2018,39 @@ window.closeSettings = function() {
 
 window.toggleVoice = function() {
   const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Rec) { showToast('voice not supported on this browser'); return; }
+  if (!Rec) { showToast('voice not supported here'); return; }
   if (isListening) { recognition && recognition.stop(); return; }
   recognition = new Rec();
   recognition.lang = 'en-GB';
   recognition.continuous = false;
   recognition.interimResults = false;
-  recognition.onstart = () => {
-    isListening = true;
-    document.getElementById('micBtn').classList.add('listening');
-    haptic(15);
-  };
+  recognition.onstart = () => { isListening = true; document.getElementById('micBtn').classList.add('listening'); haptic(15); };
   recognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     document.getElementById('addInput').value = text;
     addItem();
   };
-  recognition.onerror = () => {
-    showToast('voice error');
-  };
-  recognition.onend = () => {
-    isListening = false;
-    document.getElementById('micBtn').classList.remove('listening');
-  };
+  recognition.onerror = () => { showToast('voice error'); };
+  recognition.onend = () => { isListening = false; document.getElementById('micBtn').classList.remove('listening'); };
   recognition.start();
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// SWIPE GESTURES
+// SWIPE & LONG-PRESS
 // ════════════════════════════════════════════════════════════════════════════
 
 let swipeData = null;
+const listWrap = document.getElementById('listWrap');
 
-document.getElementById('listWrap').addEventListener('touchstart', e => {
+listWrap.addEventListener('touchstart', e => {
   const item = e.target.closest('.item');
   if (!item || !item.dataset.swipeable) return;
+  if (e.target.closest('.drag-handle')) return; // drag handle takes precedence
   const t = e.touches[0];
-  swipeData = { startX: t.clientX, startY: t.clientY, item, moved: false, id: item.dataset.id };
+  swipeData = { startX: t.clientX, startY: t.clientY, item, moved: false, id: item.dataset.id, kind: item.dataset.kind };
 }, { passive: true });
 
-document.getElementById('listWrap').addEventListener('touchmove', e => {
+listWrap.addEventListener('touchmove', e => {
   if (!swipeData) return;
   const t = e.touches[0];
   const dx = t.clientX - swipeData.startX;
@@ -1840,7 +2063,7 @@ document.getElementById('listWrap').addEventListener('touchmove', e => {
   }
 }, { passive: true });
 
-document.getElementById('listWrap').addEventListener('touchend', e => {
+listWrap.addEventListener('touchend', e => {
   if (!swipeData) return;
   const item = swipeData.item;
   const dx = parseFloat((item.style.transform.match(/-?\d+/) || [0])[0]);
@@ -1848,34 +2071,23 @@ document.getElementById('listWrap').addEventListener('touchend', e => {
   item.style.transform = '';
   if (swipeData.moved) {
     const id = Number(swipeData.id);
-    if (dx > 80) {
-      // Swipe right → tick
-      if (item.dataset.kind === 'current') toggleCollected(id);
-    } else if (dx < -80) {
-      // Swipe left → remove
-      if (item.dataset.kind === 'current') removeFromList(id);
-      else if (item.dataset.kind === 'master') removeFromMaster(id);
+    if (dx > 80 && swipeData.kind === 'current') toggleCollected(id);
+    else if (dx < -80) {
+      if (swipeData.kind === 'current') removeFromList(id);
+      else if (swipeData.kind === 'master') removeFromMaster(id);
     }
   }
   const wasMove = swipeData.moved;
   swipeData = null;
-  if (wasMove) {
-    // prevent click after swipe
-    e.preventDefault();
-  }
+  if (wasMove) e.preventDefault();
 });
-
-// ════════════════════════════════════════════════════════════════════════════
-// LONG-PRESS FOR EDIT / STAPLE
-// ════════════════════════════════════════════════════════════════════════════
 
 let pressTimer = null;
 let pressStart = null;
-
-document.getElementById('listWrap').addEventListener('pointerdown', e => {
+listWrap.addEventListener('pointerdown', e => {
   const item = e.target.closest('.item');
   if (!item) return;
-  if (e.target.closest('.item-actions, .qty-controls, .need-btn, .btn-icon, .need-more-btn')) return;
+  if (e.target.closest('.item-actions, .qty-controls, .need-btn, .btn-icon, .need-more-btn, .drag-handle')) return;
   pressStart = { x: e.clientX, y: e.clientY };
   const id = Number(item.dataset.id);
   const kind = item.dataset.kind;
@@ -1889,15 +2101,74 @@ document.getElementById('listWrap').addEventListener('pointerdown', e => {
     pressTimer = null;
   }, 550);
 });
-
-document.getElementById('listWrap').addEventListener('pointermove', e => {
+listWrap.addEventListener('pointermove', e => {
   if (!pressStart || !pressTimer) return;
-  const dx = Math.abs(e.clientX - pressStart.x);
-  const dy = Math.abs(e.clientY - pressStart.y);
-  if (dx > 10 || dy > 10) { clearTimeout(pressTimer); pressTimer = null; }
+  if (Math.abs(e.clientX - pressStart.x) > 10 || Math.abs(e.clientY - pressStart.y) > 10) {
+    clearTimeout(pressTimer); pressTimer = null;
+  }
 });
 document.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
 document.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+
+// ════════════════════════════════════════════════════════════════════════════
+// DRAG TO REORDER (master items)
+// ════════════════════════════════════════════════════════════════════════════
+
+let dragData = null;
+listWrap.addEventListener('touchstart', e => {
+  const handle = e.target.closest('.drag-handle');
+  if (!handle) return;
+  e.preventDefault();
+  const item = handle.closest('.item');
+  if (!item) return;
+  const t = e.touches[0];
+  dragData = { item, startY: t.clientY, id: Number(item.dataset.id) };
+  item.classList.add('dragging');
+}, { passive: false });
+
+listWrap.addEventListener('touchmove', e => {
+  if (!dragData) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const dy = t.clientY - dragData.startY;
+  dragData.item.style.transform = `translateY(${dy}px)`;
+
+  // Find overlapping item
+  const rect = dragData.item.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  const others = [...listWrap.querySelectorAll('.item:not(.dragging)')];
+  let target = null;
+  for (const other of others) {
+    const r = other.getBoundingClientRect();
+    if (midY > r.top && midY < r.bottom) { target = other; break; }
+  }
+  document.querySelectorAll('.item.drag-over').forEach(el => el.classList.remove('drag-over'));
+  if (target) target.classList.add('drag-over');
+}, { passive: false });
+
+listWrap.addEventListener('touchend', async e => {
+  if (!dragData) return;
+  const overEl = document.querySelector('.item.drag-over');
+  document.querySelectorAll('.item.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragData.item.classList.remove('dragging');
+  dragData.item.style.transform = '';
+  if (overEl) {
+    const targetId = Number(overEl.dataset.id);
+    const draggedId = dragData.id;
+    // Reorder master items by setting sort_order
+    const dragged = state.master.find(m => m.id === draggedId);
+    const target = state.master.find(m => m.id === targetId);
+    if (dragged && target) {
+      const targetOrder = target.sort_order != null ? target.sort_order : (getOrderScore(target) || 0);
+      dragged.sort_order = targetOrder - 0.5;
+      await dbPut('master_items', dragged);
+      await enqueue({ op: 'update', table: 'master_items', payload: { sort_order: dragged.sort_order }, match: { id: draggedId } });
+      haptic(15);
+      render();
+    }
+  }
+  dragData = null;
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // PWA INSTALL
@@ -1917,10 +2188,323 @@ window.installApp = async function() {
   document.getElementById('installBanner').classList.remove('show');
 };
 
-// Service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// BARCODE SCANNER
+// ════════════════════════════════════════════════════════════════════════════
+
+window.openScanner = async function() {
+  if (!('BarcodeDetector' in window)) {
+    showToast('barcode scanning not supported here — try Chrome/Android');
+    return;
+  }
+  const overlay = document.getElementById('scannerOverlay');
+  const video = document.getElementById('scannerVideo');
+  const status = document.getElementById('scannerStatus');
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    video.srcObject = scannerStream;
+    overlay.classList.add('show');
+    scannerDetector = new window.BarcodeDetector({
+      formats: ['ean_13','ean_8','upc_a','upc_e','code_128','code_39']
+    });
+    status.textContent = 'Looking for barcode...';
+    scanLoop();
+  } catch (e) {
+    showToast('camera access denied: ' + e.message);
+  }
+};
+
+async function scanLoop() {
+  if (!scannerStream || !scannerDetector) return;
+  const video = document.getElementById('scannerVideo');
+  if (video.readyState >= 2) {
+    try {
+      const codes = await scannerDetector.detect(video);
+      if (codes.length > 0) {
+        const code = codes[0].rawValue;
+        haptic(40);
+        document.getElementById('scannerStatus').textContent = 'Found: ' + code;
+        await handleBarcode(code);
+        closeScanner();
+        return;
+      }
+    } catch (e) { /* skip frame */ }
+  }
+  requestAnimationFrame(scanLoop);
+}
+
+async function handleBarcode(code) {
+  // Try OpenFoodFacts lookup
+  document.getElementById('scannerStatus').textContent = 'Looking up...';
+  try {
+    const resp = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+    const data = await resp.json();
+    if (data.status === 1 && data.product) {
+      const p = data.product;
+      const name = p.product_name || p.generic_name || 'Unknown product';
+      const imageUrl = p.image_front_small_url || p.image_url || null;
+      // Add to current list
+      const master = await findOrCreateMaster(name);
+      if (imageUrl && !master.image_url) {
+        master.image_url = imageUrl;
+        await dbPut('master_items', master);
+        await enqueue({ op: 'update', table: 'master_items', payload: { image_url: imageUrl }, match: { id: master.id } });
+      }
+      const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
+      if (existing) {
+        existing.quantity += 1;
+        await dbPut('current_list', existing);
+        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
+      } else {
+        const newRow = {
+          id: genId(), master_item_id: master.id, name: master.name,
+          quantity: predictQty(master.id), need_more: false, collected_at: null,
+          added_at: new Date().toISOString(),
+        };
+        state.current.push(newRow);
+        await dbPut('current_list', newRow);
+        const { id, ...payload } = newRow;
+        await enqueue({ op: 'insert', table: 'current_list', payload });
+      }
+      render();
+      showToast('added "' + name + '"');
+    } else {
+      showToast('product not found — adding as "Item ' + code.slice(-4) + '"');
+      const master = await findOrCreateMaster('Item ' + code.slice(-4));
+      await addToTrip(master.id);
+    }
+  } catch (e) {
+    showToast('lookup failed — added blank');
+    await findOrCreateMaster('Item ' + code);
+  }
+}
+
+window.closeScanner = function() {
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  scannerDetector = null;
+  document.getElementById('scannerOverlay').classList.remove('show');
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// RECIPE IMPORT
+// ════════════════════════════════════════════════════════════════════════════
+
+window.openRecipeImport = function() {
+  document.getElementById('recipeText').value = '';
+  document.getElementById('recipeImport').classList.add('show');
+};
+window.closeRecipeImport = function() { document.getElementById('recipeImport').classList.remove('show'); };
+
+function cleanIngredient(line) {
+  let s = line.trim().toLowerCase();
+  // Remove leading quantities like "2", "1/2", "1.5", "2-3"
+  s = s.replace(/^[\d\s\/\.\-]+/, '');
+  // Remove units
+  const tokens = s.split(/\s+/).filter(t => !RECIPE_STOPWORDS.includes(t));
+  // Take up to first 4 meaningful tokens
+  s = tokens.slice(0, 4).join(' ');
+  // Remove parens content
+  s = s.replace(/\(.*?\)/g, '').trim();
+  // Capitalise first letter
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+window.importRecipe = async function() {
+  const text = document.getElementById('recipeText').value;
+  if (!text.trim()) return;
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let added = 0;
+  for (const line of lines) {
+    const name = cleanIngredient(line);
+    if (!name || name.length < 2) continue;
+    const master = await findOrCreateMaster(name);
+    const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
+    if (existing) {
+      existing.quantity += 1;
+      await dbPut('current_list', existing);
+      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
+    } else {
+      const newRow = {
+        id: genId(), master_item_id: master.id, name: master.name,
+        quantity: 1, need_more: false, collected_at: null,
+        added_at: new Date().toISOString(),
+      };
+      state.current.push(newRow);
+      await dbPut('current_list', newRow);
+      const { id, ...payload } = newRow;
+      await enqueue({ op: 'insert', table: 'current_list', payload });
+    }
+    added++;
+  }
+  closeRecipeImport();
+  render();
+  showToast('added ' + added + ' ingredient' + (added > 1 ? 's' : ''));
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// RECEIPT OCR (basic — extracts total only via Tesseract.js loaded on demand)
+// ════════════════════════════════════════════════════════════════════════════
+
+window.handleReceiptUpload = async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('ocrStatus');
+  status.innerHTML = '<span class="ocr-spinner"></span> Reading receipt...';
+
+  try {
+    // Load Tesseract on demand
+    if (!window.Tesseract) {
+      const mod = await import('https://esm.sh/tesseract.js@5.0.4');
+      window.Tesseract = mod.default || mod;
+    }
+    const worker = await window.Tesseract.createWorker('eng');
+    const { data: { text } } = await worker.recognize(file);
+    await worker.terminate();
+
+    // Find total: look for "total" lines with a number
+    const lines = text.split('\n');
+    let total = null;
+    for (const line of lines) {
+      if (/total/i.test(line) && !/sub/i.test(line)) {
+        const m = line.match(/(\d+[\.,]\d{2})/);
+        if (m) { total = parseFloat(m[1].replace(',', '.')); break; }
+      }
+    }
+    // Fallback: largest currency-like number
+    if (!total) {
+      const nums = [...text.matchAll(/(\d+[\.,]\d{2})/g)].map(m => parseFloat(m[1].replace(',', '.')));
+      if (nums.length) total = Math.max(...nums);
+    }
+
+    if (total != null) {
+      document.getElementById('actualCost').value = total.toFixed(2);
+      status.textContent = '✓ Total detected: ' + fmtMoney(total) + ' — review and save';
+    } else {
+      status.textContent = '⚠ Could not detect total — enter manually';
+    }
+  } catch (err) {
+    status.textContent = '⚠ OCR failed: ' + err.message;
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// QR SHARING
+// ════════════════════════════════════════════════════════════════════════════
+
+window.showShareQR = async function() {
+  closeSettings();
+  const cfg = getConfig();
+  if (!cfg) return;
+  const payload = JSON.stringify({ u: cfg.url, k: cfg.key });
+  const container = document.getElementById('qrContainer');
+  container.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  container.appendChild(canvas);
+  await QRCode.toCanvas(canvas, payload, { width: 240, margin: 1 });
+  document.getElementById('shareQRModal').classList.add('show');
+};
+window.closeShareQR = function() { document.getElementById('shareQRModal').classList.remove('show'); };
+
+window.scanShareQR = async function() {
+  if (!('BarcodeDetector' in window)) {
+    showToast('QR scanning not supported here — type manually');
+    return;
+  }
+  const overlay = document.getElementById('qrScannerOverlay');
+  const video = document.getElementById('qrScannerVideo');
+  try {
+    qrScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = qrScannerStream;
+    overlay.classList.add('show');
+    const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+    const loop = async () => {
+      if (!qrScannerStream) return;
+      if (video.readyState >= 2) {
+        try {
+          const codes = await detector.detect(video);
+          if (codes.length > 0) {
+            try {
+              const parsed = JSON.parse(codes[0].rawValue);
+              if (parsed.u && parsed.k) {
+                document.getElementById('cfgUrl').value = parsed.u;
+                document.getElementById('cfgKey').value = parsed.k;
+                closeQRScanner();
+                showToast('credentials filled');
+                return;
+              }
+            } catch (e) { /* not our QR */ }
+          }
+        } catch (e) {}
+      }
+      requestAnimationFrame(loop);
+    };
+    loop();
+  } catch (e) {
+    showToast('camera access denied');
+  }
+};
+
+window.closeQRScanner = function() {
+  if (qrScannerStream) { qrScannerStream.getTracks().forEach(t => t.stop()); qrScannerStream = null; }
+  document.getElementById('qrScannerOverlay').classList.remove('show');
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// ONBOARDING TOUR
+// ════════════════════════════════════════════════════════════════════════════
+
+const TOUR_STEPS = [
+  { emoji: '🛒', title: 'Welcome to Trolley', body: 'A smart shopping list that learns the order you walk through your shop and gets faster every trip.' },
+  { emoji: '📋', title: 'Master vs Trip', body: 'Master is your full catalogue — every item you might ever buy. Trip is your active list. Tap "+ need" in Master to add to the current Trip.' },
+  { emoji: '🛍', title: 'At the shop', body: 'Tap items to tick them off as you collect. The order you tick them in trains the route. After a few trips, items auto-sort to match your walking path.' },
+  { emoji: '⭐', title: 'Staples', body: 'Long-press a master item to edit it. Mark frequent buys as staples — tap "+ staples" at the start of a trip to add them all in one go.' },
+  { emoji: '✨', title: 'Smart features', body: 'Voice add 🎤, scan barcodes 📷, import from recipes 📋, scan QR to share with partner. Tap ⚙ → "share to partner" to invite them.' },
+  { emoji: '👍', title: "You're set", body: 'Pick the shop at the top, then start a Trip. Everything syncs across devices in real time.' },
+];
+let tourStep = 0;
+
+function startTour() {
+  tourStep = 0;
+  renderTour();
+  document.getElementById('tourOverlay').classList.add('show');
+}
+
+function renderTour() {
+  const step = TOUR_STEPS[tourStep];
+  document.getElementById('tourEmoji').textContent = step.emoji;
+  document.getElementById('tourTitle').textContent = step.title;
+  document.getElementById('tourBody').textContent = step.body;
+  document.getElementById('tourProgress').innerHTML = TOUR_STEPS.map((_, i) =>
+    `<div class="tour-dot${i === tourStep ? ' active' : ''}"></div>`
+  ).join('');
+  document.getElementById('tourNext').textContent = tourStep === TOUR_STEPS.length - 1 ? 'done' : 'next';
+}
+
+window.nextTour = function() {
+  tourStep++;
+  if (tourStep >= TOUR_STEPS.length) {
+    document.getElementById('tourOverlay').classList.remove('show');
+    localStorage.setItem('trolley_tour_done', '1');
+    return;
+  }
+  renderTour();
+};
+
+window.skipTour = function() {
+  document.getElementById('tourOverlay').classList.remove('show');
+  localStorage.setItem('trolley_tour_done', '1');
+};
+
+window.restartTour = function() {
+  closeSettings();
+  startTour();
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 // RENDER
@@ -1932,15 +2516,14 @@ function render() {
   const desired = state.shops.map(s => `<option value="${s.id}"${s.id === state.activeShopId ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('');
   if (sel.innerHTML !== desired) sel.innerHTML = desired;
 
-  // Stats (trip)
+  // Stats
   const total = state.current.length;
   const collected = state.current.filter(i => i.collected_at).length;
   const needMore = state.current.filter(i => i.need_more).length;
   const totalQty = state.current.reduce((s, i) => s + i.quantity, 0);
   const estCost = state.current.reduce((s, i) => {
     const m = state.master.find(x => x.id === i.master_item_id);
-    if (m && m.est_price) return s + (m.est_price * i.quantity);
-    return s;
+    return s + (m && m.est_price ? m.est_price * i.quantity : 0);
   }, 0);
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statCollected').textContent = collected;
@@ -1949,6 +2532,11 @@ function render() {
   document.getElementById('statCost').textContent = fmtMoney(estCost);
   const pct = total > 0 ? Math.round((collected / total) * 100) : 0;
   document.getElementById('progressFill').style.width = pct + '%';
+
+  // Glow finish button when all done
+  const finishBtn = document.getElementById('finishTripBtn');
+  if (collected === total && total > 0) finishBtn.classList.add('glow');
+  else finishBtn.classList.remove('glow');
 
   if (currentView === 'trip') renderTrip();
   else if (currentView === 'master') renderMaster();
@@ -1962,19 +2550,19 @@ function renderTrip() {
   if (search) visible = visible.filter(i => i.name.toLowerCase().includes(search));
   if (currentTab === 'needed') visible = visible.filter(i => i.need_more);
   if (currentTab === 'collected') visible = visible.filter(i => i.collected_at);
-
   const pending = sortByRoute(visible.filter(i => !i.collected_at));
   const done = sortByRoute(visible.filter(i => i.collected_at));
 
   let html = '';
-
-  // Suggestions (only on All tab, no search, no collected filter)
   if (currentTab === 'all' && !search) {
     const suggestions = computeCadenceSuggestions();
     if (suggestions.length) {
       html += `
         <div class="suggest-card">
-          <div class="suggest-title">⏰ might be due</div>
+          <div class="suggest-title">
+            <span>⏰ might be due</span>
+            <button class="suggest-add-all" onclick="addAllSuggestions()">add all</button>
+          </div>
           <div class="suggest-chips">
             ${suggestions.map(s => `
               <button class="suggest-chip" onclick="addToTrip(${s.id})">
@@ -1991,7 +2579,7 @@ function renderTrip() {
   if (visible.length === 0) {
     html += `<div class="empty"><div class="empty-icon">🛒</div>
       <div class="empty-title">${currentTab === 'all' ? 'trip is empty' : 'nothing here'}</div>
-      <div class="empty-sub">${currentTab === 'all' ? 'add items, or use + staples' : ''}</div></div>`;
+      <div class="empty-sub">${currentTab === 'all' ? 'add items or tap ✨ suggest' : ''}</div></div>`;
     wrap.innerHTML = html;
     return;
   }
@@ -2008,23 +2596,40 @@ function renderTrip() {
   wrap.innerHTML = html;
 }
 
+window.addAllSuggestions = async function() {
+  const s = computeCadenceSuggestions();
+  for (const sug of s) await addToTrip(sug.id);
+  showToast('added ' + s.length + ' suggestions');
+};
+
 function tripItemHTML(item) {
   const master = state.master.find(m => m.id === item.master_item_id);
   const conf = confidenceLevel(item.name);
   const learned = hasLearnedOrder(item.name);
-  const cat = master && master.category ? categoryLabel(master.category) : null;
+  const cat = master && master.category ? categoryByKey(master.category) : null;
+  const isLowFlagged = master && master.last_low_flagged_at && !item.collected_at;
+  const aisle = master && master.aisle_override != null ? master.aisle_override : null;
+  const priceComp = master ? bestPriceForItem(master.id) : null;
+
   const metaParts = [];
   if (cat) metaParts.push(`<span>${cat.icon}</span>`);
-  if (learned && !item.collected_at) {
+  if (aisle != null) metaParts.push(`<span class="aisle-pin">aisle ${aisle}</span>`);
+  if (learned && !item.collected_at && aisle == null) {
     const dots = '●'.repeat(conf + 1) + '○'.repeat(2 - conf);
     metaParts.push(`<span>${dots}</span>`);
   }
   if (item.need_more && !item.collected_at) metaParts.push(`<span style="color:var(--danger)">⚠ flag</span>`);
-  if (master && master.est_price) metaParts.push(`<span>${fmtMoney(master.est_price * item.quantity)}</span>`);
+  if (master && master.est_price) metaParts.push(`<span class="price-tag">${fmtMoney(master.est_price * item.quantity)}</span>`);
+  if (priceComp) metaParts.push(`<span class="price-better">−${fmtMoney(priceComp.saving)} @ ${escHtml(priceComp.shop)}</span>`);
+
+  const thumb = master && master.image_url
+    ? `<div class="item-thumb"><img src="${escHtml(master.image_url)}" onerror="this.parentElement.innerHTML='${cat ? cat.icon : '📦'}'"></div>`
+    : (cat ? `<div class="item-thumb">${cat.icon}</div>` : '');
 
   return `
-    <div class="item${item.collected_at ? ' collected' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
+    <div class="item${item.collected_at ? ' collected' : ''}${isLowFlagged ? ' low-flagged' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
       <div class="check-box"><span class="check-icon">✓</span></div>
+      ${thumb}
       <div class="item-body">
         <div class="item-name">${escHtml(item.name)}</div>
         ${metaParts.length ? `<div class="item-meta">${metaParts.join('<span class="sep">·</span>')}</div>` : ''}
@@ -2056,7 +2661,6 @@ function renderMaster() {
     return;
   }
 
-  // Group by category, but within each category sort by learned route
   const byCategory = {};
   for (const m of visible) {
     const cat = m.category || 'other';
@@ -2064,51 +2668,53 @@ function renderMaster() {
     byCategory[cat].push(m);
   }
 
-  // Sort categories by lowest order score within them (so category that contains
-  // your first-collected items appears first)
   const catOrder = Object.keys(byCategory).sort((a, b) => {
-    const minA = Math.min(...byCategory[a].map(m => getOrderScore(m.name)));
-    const minB = Math.min(...byCategory[b].map(m => getOrderScore(m.name)));
-    return minA - minB;
+    const ca = state.categories.find(x => x.key === a);
+    const cb = state.categories.find(x => x.key === b);
+    return (ca ? ca.sort_order : 999) - (cb ? cb.sort_order : 999);
   });
 
-  // Staples section first
+  let html = '';
   const staples = visible.filter(m => m.is_staple);
   const dormant = computeDormantItems().filter(m => visible.includes(m));
 
-  let html = '';
   if (staples.length && !search) {
     html += `<div class="section-label with-line">⭐ staples</div>`;
-    html += sortByRoute(staples).map(m => masterItemHTML(m)).join('');
+    html += sortByRoute(staples).map(m => masterItemHTML(m, true)).join('');
   }
-
   for (const cat of catOrder) {
     const items = sortByRoute(byCategory[cat]);
-    const c = categoryLabel(cat);
-    html += `<div class="section-label with-line"><span>${c.icon} ${cat}</span> <span class="cat-badge">${items.length}</span></div>`;
-    html += items.map(m => masterItemHTML(m)).join('');
+    const c = categoryByKey(cat);
+    html += `<div class="section-label with-line"><span>${c.icon} ${c.label}</span> <span class="cat-badge">${items.length}</span></div>`;
+    html += items.map(m => masterItemHTML(m, false)).join('');
   }
-
   if (dormant.length && !search) {
-    html += `<div class="section-label with-line dormant-section">💤 dormant (60+ days)</div>`;
-    html += `<div style="font-size:11px;color:var(--text-dim);padding:4px 0 8px">${dormant.length} item${dormant.length !== 1 ? 's' : ''} not bought recently — consider removing if no longer needed.</div>`;
+    html += `<div class="section-label with-line dormant-section">💤 dormant (60+ days, ${dormant.length})</div>`;
   }
 
   wrap.innerHTML = html;
 }
 
-function masterItemHTML(m) {
+function masterItemHTML(m, allowDrag) {
   const onList = state.current.find(c => c.master_item_id === m.id && !c.collected_at);
   const qty = onList ? onList.quantity : 0;
   const learned = hasLearnedOrder(m.name);
-  const cat = categoryLabel(m.category);
+  const cat = categoryByKey(m.category);
   const metaParts = [];
   if (m.times_bought > 0) metaParts.push(`bought ${m.times_bought}×`);
   if (learned) metaParts.push(`learned`);
-  if (m.est_price) metaParts.push(fmtMoney(m.est_price));
+  if (m.est_price) metaParts.push(`<span class="price-tag">${fmtMoney(m.est_price)}</span>`);
+  if (m.aisle_override != null) metaParts.push(`<span class="aisle-pin">aisle ${m.aisle_override}</span>`);
+  if (m.default_qty > 1) metaParts.push(`def qty ${m.default_qty}`);
+
+  const thumb = m.image_url
+    ? `<div class="item-thumb"><img src="${escHtml(m.image_url)}" onerror="this.parentElement.innerHTML='${cat.icon}'"></div>`
+    : `<div class="item-thumb">${cat.icon}</div>`;
 
   return `
     <div class="item" data-id="${m.id}" data-kind="master" data-swipeable="1">
+      ${allowDrag ? `<span class="drag-handle">≡</span>` : ''}
+      ${thumb}
       <div class="item-body">
         <div class="item-name">${m.is_staple ? '⭐ ' : ''}${escHtml(m.name)}</div>
         ${metaParts.length ? `<div class="item-meta">${metaParts.join('<span class="sep">·</span>')}</div>` : ''}
@@ -2129,42 +2735,28 @@ function masterItemHTML(m) {
 function renderHistory() {
   const wrap = document.getElementById('listWrap');
   const trips = state.trips;
-
   const totalTrips = trips.length;
   const totalItems = trips.reduce((s, t) => s + (t.item_count || 0), 0);
   const avgItems = totalTrips > 0 ? (totalItems / totalTrips).toFixed(1) : '0';
   const totalSpent = trips.reduce((s, t) => s + (Number(t.total_cost) || 0), 0);
-
   const buyCount = {};
   for (const t of trips) {
-    for (const i of (t.items || [])) {
-      buyCount[i.name] = (buyCount[i.name] || 0) + (i.quantity || 1);
-    }
+    for (const i of (t.items || [])) buyCount[i.name] = (buyCount[i.name] || 0) + (i.quantity || 1);
   }
   const topItem = Object.entries(buyCount).sort((a, b) => b[1] - a[1])[0];
-
   let daysSince = '–';
   if (trips.length > 0) {
     const last = new Date(trips[0].completed_at);
-    const diff = Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = Math.floor((Date.now() - last.getTime()) / 86400000);
     daysSince = diff === 0 ? 'today' : diff === 1 ? '1d' : `${diff}d`;
   }
-
-  // Heatmap: last 14 weeks (98 days)
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const days = 98;
+  const today = new Date(); today.setHours(0,0,0,0);
   const cells = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
+  for (let i = 97; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
     const dStr = d.toISOString().slice(0,10);
     const count = trips.filter(t => t.completed_at.slice(0,10) === dStr).length;
-    let level = 0;
-    if (count >= 3) level = 3;
-    else if (count === 2) level = 2;
-    else if (count === 1) level = 1;
-    cells.push(level);
+    cells.push(count >= 3 ? 3 : count === 2 ? 2 : count === 1 ? 1 : 0);
   }
 
   let html = `
@@ -2179,15 +2771,13 @@ function renderHistory() {
         <div class="stats-card-label">Total spent</div>
         <div class="stats-card-val" style="font-size:20px">${fmtMoney(totalSpent)}</div>
         <div class="stats-card-sub">avg ${fmtMoney(totalSpent / Math.max(1, trips.filter(t => t.total_cost).length))} per recorded trip</div>
-      </div>
-    ` : ''}
+      </div>` : ''}
     ${topItem ? `
       <div class="stats-card" style="margin-bottom:12px">
-        <div class="stats-card-label">Most-bought item</div>
+        <div class="stats-card-label">Most-bought</div>
         <div class="stats-card-val" style="font-size:18px">${escHtml(topItem[0])}</div>
         <div class="stats-card-sub">${topItem[1]} units across all trips</div>
-      </div>
-    ` : ''}
+      </div>` : ''}
     <div class="heatmap">
       <div class="heatmap-title">Last 14 weeks</div>
       <div class="heatmap-grid">
@@ -2230,12 +2820,11 @@ function renderHistory() {
         </div>`;
     }).join('');
   }
-
   wrap.innerHTML = html;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// TOAST WITH UNDO
+// TOAST
 // ════════════════════════════════════════════════════════════════════════════
 
 function showToast(msg, withUndo = false) {
@@ -2246,7 +2835,7 @@ function showToast(msg, withUndo = false) {
   undoBtn.onclick = undoDelete;
   t.classList.add('show');
   clearTimeout(undoTimer);
-  undoTimer = setTimeout(() => { t.classList.remove('show'); lastDeletedItem = null; }, withUndo ? 5000 : 2200);
+  undoTimer = setTimeout(() => { t.classList.remove('show'); lastDeleted = null; }, withUndo ? 5000 : 2200);
 }
 window.showToast = showToast;
 
