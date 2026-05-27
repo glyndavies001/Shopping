@@ -1,5 +1,5 @@
 // Bump this string any time you want all clients to force-refetch
-const CACHE_NAME = 'trolley-v5-2026-05-27-c';
+const CACHE_NAME = 'trolley-v5-2026-05-27-d';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {

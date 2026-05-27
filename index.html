@@ -549,6 +549,35 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 
 .dormant-section { opacity: 0.7; }
 
+/* Custom checkbox */
+.staple-check {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 8px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.staple-check input { display: none; }
+.staple-check .box {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border: 2px solid var(--border); border-radius: 5px;
+  background: var(--bg); display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.staple-check .box::after {
+  content: '✓'; color: #fff; font-size: 14px; font-weight: bold;
+  opacity: 0; transition: opacity 0.15s;
+}
+.staple-check input:checked + .box {
+  background: var(--warning); border-color: var(--warning);
+}
+.staple-check input:checked + .box::after { opacity: 1; color: #000; }
+.staple-check .label-text {
+  font-size: 13px; color: var(--text); flex: 1;
+}
+.staple-check input:checked ~ .label-text {
+  color: var(--warning); font-weight: 500;
+}
+
 /* Pull-to-refresh */
 .ptr-indicator {
   position: absolute; top: 0; left: 50%;
@@ -739,10 +768,11 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
       <label>Image URL (optional)</label>
       <input type="text" id="editImageUrl" placeholder="https://...">
     </div>
-    <div class="modal-row" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px">
-      <input type="checkbox" id="editStaple" style="width:auto;margin:0">
-      <label for="editStaple" style="margin:0;text-transform:none;font-size:13px;color:var(--text);letter-spacing:0;cursor:pointer">⭐ Mark as staple (regular buy)</label>
-    </div>
+    <label class="staple-check" for="editStaple">
+      <input type="checkbox" id="editStaple">
+      <span class="box"></span>
+      <span class="label-text">⭐ Mark as staple (regular buy)</span>
+    </label>
     <div class="modal-btn-row">
       <button class="modal-btn danger" onclick="deleteFromEdit()">delete</button>
       <button class="modal-btn" onclick="closeEdit()">cancel</button>
