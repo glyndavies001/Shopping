@@ -739,6 +739,10 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
       <label>Image URL (optional)</label>
       <input type="text" id="editImageUrl" placeholder="https://...">
     </div>
+    <div class="modal-row" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px">
+      <input type="checkbox" id="editStaple" style="width:auto;margin:0">
+      <label for="editStaple" style="margin:0;text-transform:none;font-size:13px;color:var(--text);letter-spacing:0;cursor:pointer">⭐ Mark as staple (regular buy)</label>
+    </div>
     <div class="modal-btn-row">
       <button class="modal-btn danger" onclick="deleteFromEdit()">delete</button>
       <button class="modal-btn" onclick="closeEdit()">cancel</button>
@@ -1860,6 +1864,7 @@ window.openEdit = function(masterId) {
   document.getElementById('editDefaultQty').value = m.default_qty || 1;
   document.getElementById('editAisle').value = m.aisle_override || '';
   document.getElementById('editImageUrl').value = m.image_url || '';
+  document.getElementById('editStaple').checked = !!m.is_staple;
   const preview = document.getElementById('editImagePreview');
   if (m.image_url) {
     preview.src = m.image_url;
@@ -1889,8 +1894,9 @@ window.saveEdit = async function() {
   const aisleVal = document.getElementById('editAisle').value;
   const aisle_override = aisleVal ? parseInt(aisleVal) : null;
   const image_url = document.getElementById('editImageUrl').value.trim() || null;
+  const is_staple = document.getElementById('editStaple').checked;
 
-  const updates = { name, category, est_price, notes, default_qty, aisle_override, image_url };
+  const updates = { name, category, est_price, notes, default_qty, aisle_override, image_url, is_staple };
   Object.assign(m, updates);
   await dbPut('master_items', m);
   await enqueue({ op: 'update', table: 'master_items', payload: updates, match: { id: editingItemId } });
