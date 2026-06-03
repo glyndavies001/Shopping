@@ -778,7 +778,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.7</div>
+<div class="version-footer">v5.8</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -1163,6 +1163,10 @@ function render() {
     throw err;
   }
 }
+// Expose to window so inline event handlers (oninput="render()") can find it.
+// Without this, calls from HTML attributes throw ReferenceError because module
+// scope is sealed off from the global namespace.
+window.render = render;
 
 function haptic(ms = 10) {
   if (navigator.vibrate) try { navigator.vibrate(ms); } catch(e) {}
