@@ -423,6 +423,36 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 .trip-summary { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 .trip-items { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .trip-card.expanded .trip-items { display: block; }
+.trip-chevron { transition: transform 0.2s; }
+.trip-card.expanded .trip-chevron { transform: rotate(180deg); }
+
+/* MEALS */
+.meal-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+}
+.meal-header {
+  display: flex; align-items: center; gap: 8px; padding: 14px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.meal-name { font-weight: 600; font-size: 15px; color: var(--text); }
+.meal-summary { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 0.04em; }
+.meal-chevron { transition: transform 0.2s; }
+.meal-card.expanded .meal-chevron { transform: rotate(180deg); }
+.meal-body { display: none; padding: 0 14px 12px; border-top: 1px solid var(--border); }
+.meal-card.expanded .meal-body { display: block; padding-top: 8px; }
+.meal-ingredient {
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.meal-ingredient:last-child { border-bottom: none; }
+.meal-ingredient-name { flex: 1; font-size: 13px; color: var(--text); }
+.need-btn.on-trip { background: var(--surface2); color: var(--muted); }
+.meal-edit-ing-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--surface2); border-radius: 8px; margin-bottom: 4px;
+  font-size: 13px; color: var(--text);
+}
 .trip-item-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
 .trip-item-name { color: var(--text); }
 .trip-item-qty { color: var(--text-dim); }
@@ -549,6 +579,34 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 
 .dormant-section { opacity: 0.7; }
 
+.version-footer {
+  position: fixed; bottom: 4px; right: 8px;
+  font-size: 9px; color: var(--muted);
+  opacity: 0.4; pointer-events: none; z-index: 10;
+  letter-spacing: 0.05em;
+}
+
+/* M2: flash new items briefly to confirm they were added */
+@keyframes flashNew {
+  0%   { background: var(--accent-dim); }
+  100% { background: var(--surface); }
+}
+.item.flash-new { animation: flashNew 1s ease-out; }
+
+/* M8: offline banner shows clearly when offline so user knows changes are queued */
+.offline-banner {
+  display: none; background: var(--danger); color: #fff;
+  padding: 6px 14px; text-align: center; font-size: 11px;
+  font-weight: 500; letter-spacing: 0.04em;
+}
+.offline-banner.show { display: block; }
+
+/* Search hint shows total items being searched */
+.search-hint {
+  font-size: 9px; color: var(--muted); padding: 4px 14px 0; opacity: 0.6;
+  letter-spacing: 0.05em;
+}
+
 /* Custom checkbox */
 .staple-check {
   display: flex; align-items: center; gap: 12px;
@@ -632,6 +690,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 </div>
 
 <div id="app" style="display:none">
+  <div class="offline-banner" id="offlineBanner">⚠ offline — changes will sync when reconnected</div>
   <header>
     <div class="header-top">
       <div class="logo">trolley</div>
@@ -651,20 +710,21 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
     <div class="install-banner" id="installBanner">
       <span>Install Trolley for offline use</span>
       <button onclick="installApp()">install</button>
+      <button onclick="dismissInstall()" style="background:transparent;font-size:14px;padding:4px 8px" title="dismiss">✕</button>
     </div>
 
     <div class="main-tabs">
       <button class="main-tab active" id="viewTrip" onclick="setView('trip')">Trip</button>
       <button class="main-tab" id="viewMaster" onclick="setView('master')">Master</button>
+      <button class="main-tab" id="viewMeals" onclick="setView('meals')">Meals</button>
       <button class="main-tab" id="viewHistory" onclick="setView('history')">History</button>
     </div>
 
     <div class="stats-bar" id="tripStats">
-      <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-label">items</div></div>
-      <div class="stat"><div class="stat-val" id="statQty">0</div><div class="stat-label">qty</div></div>
-      <div class="stat"><div class="stat-val" id="statCollected">0</div><div class="stat-label">done</div></div>
-      <div class="stat"><div class="stat-val" id="statNeedMore">0</div><div class="stat-label">flag</div></div>
-      <div class="stat"><div class="stat-val" id="statCost">£0</div><div class="stat-label">est</div></div>
+      <div class="stat"><div class="stat-val" id="statProgress">0 / 0</div><div class="stat-label">done / items</div></div>
+      <div class="stat" id="statQtyWrap" style="display:none"><div class="stat-val" id="statQty">0</div><div class="stat-label">qty</div></div>
+      <div class="stat" id="statFlagWrap" style="display:none"><div class="stat-val" id="statNeedMore">0</div><div class="stat-label">flagged</div></div>
+      <div class="stat" id="statCostWrap"><div class="stat-val" id="statCost">£0</div><div class="stat-label">est cost</div></div>
     </div>
     <div class="progress-track" id="progressTrack"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
   </header>
@@ -676,7 +736,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   </div>
 
   <div class="search-row" id="searchRow">
-    <input class="search-input" id="searchInput" placeholder="search..." oninput="render()">
+    <input class="search-input" id="searchInput" placeholder="search..." oninput="render()" onkeyup="render()" onchange="render()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
   </div>
 
   <div class="ptr-indicator" id="ptrIndicator">
@@ -708,6 +768,8 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <span id="toastMsg"></span>
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
+
+<div class="version-footer">v5.6</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -773,6 +835,11 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
       <span class="box"></span>
       <span class="label-text">⭐ Mark as staple (regular buy)</span>
     </label>
+    <label class="staple-check" for="editOOS" style="margin-top:6px">
+      <input type="checkbox" id="editOOS">
+      <span class="box"></span>
+      <span class="label-text">🚫 Out of stock at this shop (auto-clears next purchase)</span>
+    </label>
     <div class="modal-btn-row">
       <button class="modal-btn danger" onclick="deleteFromEdit()">delete</button>
       <button class="modal-btn" onclick="closeEdit()">cancel</button>
@@ -785,14 +852,24 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 <div class="modal-bg" id="recipeImport">
   <div class="modal-card">
     <h2>Import from recipe</h2>
-    <p>Paste a list of ingredients (one per line) or a recipe text. Quantities will be stripped.</p>
-    <div class="modal-row">
-      <label>Ingredients</label>
-      <textarea id="recipeText" class="recipe-textarea" placeholder="2 cups flour&#10;1 tsp salt&#10;500g chicken thighs&#10;3 cloves garlic"></textarea>
+    <div id="recipeStep1">
+      <p>Paste a list of ingredients (one per line) or a recipe text. Quantities will be stripped.</p>
+      <div class="modal-row">
+        <label>Ingredients</label>
+        <textarea id="recipeText" class="recipe-textarea" placeholder="2 cups flour&#10;1 tsp salt&#10;500g chicken thighs&#10;3 cloves garlic"></textarea>
+      </div>
+      <div class="modal-btn-row">
+        <button class="modal-btn" onclick="closeRecipeImport()">cancel</button>
+        <button class="modal-btn primary" onclick="previewRecipe()">preview →</button>
+      </div>
     </div>
-    <div class="modal-btn-row">
-      <button class="modal-btn" onclick="closeRecipeImport()">cancel</button>
-      <button class="modal-btn primary" onclick="importRecipe()">add to trip</button>
+    <div id="recipeStep2" style="display:none">
+      <p id="recipePreviewMsg">Select which to add:</p>
+      <div id="recipePreviewList" style="max-height:50vh;overflow-y:auto;margin-bottom:12px"></div>
+      <div class="modal-btn-row">
+        <button class="modal-btn" onclick="backToRecipeEdit()">← back</button>
+        <button class="modal-btn primary" onclick="importRecipe()">add selected</button>
+      </div>
     </div>
   </div>
 </div>
@@ -844,6 +921,9 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
       <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
       <button class="modal-btn" onclick="forceSync()">force sync now</button>
+      <button class="modal-btn" onclick="exportData()">💾 export data (JSON)</button>
+      <button class="modal-btn" onclick="document.getElementById('importFile').click()">📂 import data (JSON)</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
       <button class="modal-btn" onclick="restartTour()">replay tour</button>
       <button class="modal-btn" onclick="clearLocalCache()">clear local cache</button>
       <button class="modal-btn danger" onclick="disconnect()">disconnect</button>
@@ -885,6 +965,55 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   </div>
 </div>
 
+<!-- Barcode confirm: lets user edit auto-detected name -->
+<div class="modal-bg" id="barcodeConfirm">
+  <div class="modal-card">
+    <h2>Scanned product</h2>
+    <p>Edit name if needed (e.g. shorten "Yeo Valley Organic Natural Yogurt 500g" to "Yoghurt").</p>
+    <img id="barcodeConfirmImage" class="image-preview" style="display:none">
+    <div class="modal-row">
+      <label>Name</label>
+      <input type="text" id="barcodeConfirmName" maxlength="60">
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="cancelBarcodeAdd()">cancel</button>
+      <button class="modal-btn primary" onclick="confirmBarcodeAdd()">add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Meal edit modal -->
+<div class="modal-bg" id="mealEditModal">
+  <div class="modal-card">
+    <h2 id="mealEditTitle">Edit meal</h2>
+    <div class="modal-row">
+      <label>Meal name</label>
+      <input type="text" id="mealEditName" maxlength="60">
+    </div>
+    <div class="modal-row">
+      <label>Ingredients</label>
+      <div id="mealEditIngredients" style="max-height:30vh;overflow-y:auto;margin-bottom:8px"></div>
+    </div>
+    <div class="modal-row">
+      <label>Add from master list</label>
+      <select id="mealMasterPicker" onchange="addMealIngredientFromMaster()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:var(--text);width:100%"></select>
+    </div>
+    <div class="modal-row">
+      <label>Or type a new ingredient</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="mealIngInput" placeholder="e.g. tomatoes" maxlength="60" style="flex:1"
+          onkeydown="if(event.key==='Enter')addMealIngredientFromInput()">
+        <button class="modal-btn primary" onclick="addMealIngredientFromInput()" style="padding:10px 14px;font-size:13px">add</button>
+      </div>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn danger" onclick="deleteMeal()">delete</button>
+      <button class="modal-btn" onclick="closeMealEdit()">cancel</button>
+      <button class="modal-btn primary" onclick="saveMealName()">save</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="https://esm.sh/qrcode@1.5.3"></script>
 
 <script type="module">
@@ -922,7 +1051,47 @@ const CAT_KEYWORDS = {
   pet: ['dog','cat','pet','tripe','bone','treat','litter','kibble'],
 };
 
-const RECIPE_STOPWORDS = ['cup','cups','tsp','tbsp','tablespoon','teaspoon','g','kg','ml','l','oz','lb','lbs','pound','pounds','ounce','ounces','gram','grams','of','a','an','the','some','few','small','large','medium','fresh','dried','chopped','sliced','minced','diced','crushed','grated','to','taste','optional','for','with','and','or'];
+const RECIPE_STOPWORDS = ['cup','cups','tsp','tbsp','tablespoon','tablespoons','teaspoon','teaspoons','g','kg','ml','l','oz','lb','lbs','pound','pounds','ounce','ounces','gram','grams','of','a','an','the','some','few','small','large','medium','fresh','dried','chopped','sliced','minced','diced','crushed','grated','to','taste','optional','for','with','and','or','can','cans','jar','jars','box','boxes','bag','bags','bunch','head','heads','clove','cloves','sprig','sprigs','pinch','dash','handful','about','approx','approximately'];
+
+// Skip lines that look like instructions, not ingredients
+const RECIPE_SKIP_PATTERNS = [
+  /^step\s*\d/i,                           // "Step 1", "Step 2:"
+  /^\d+\s*[\.\)]\s*[A-Z]/,                 // "1. Preheat..." (instructions)
+  /(preheat|combine|mix|stir|whisk|cook|bake|simmer|sauté|saute|chop|drain|serve|set\s+aside|meanwhile|once|until|when|after|before)/i,
+  /^(method|instructions|directions|notes|tips|servings|prep|cook\s*time|total\s*time|yield|ingredients):?\s*$/i,
+];
+
+function cleanIngredient(line) {
+  let s = line.trim();
+
+  // Skip if matches instruction patterns
+  for (const pat of RECIPE_SKIP_PATTERNS) {
+    if (pat.test(s)) return null;
+  }
+
+  s = s.toLowerCase();
+  // Strip leading bullet/dash/asterisk/numbering
+  s = s.replace(/^[\-\*•·▪◦]+\s*/, '');
+  s = s.replace(/^\d+[\.\)]\s*/, '');
+  // Strip leading quantity (digits, fractions like 1/2, ranges like 2-3, decimals)
+  s = s.replace(/^[\d\s\/\.\-–—]+/, '');
+  // Strip can/jar/bottle sizes like "(14 oz)" or "14-oz" or "500ml"
+  s = s.replace(/\(.*?\)/g, '');
+  s = s.replace(/\d+[\s\-]*(oz|ml|g|kg|lb|lbs|l)\b/gi, '');
+  // Strip parenthetical content
+  s = s.replace(/\s+/g, ' ').trim();
+  // Tokenise and drop stopwords
+  const tokens = s.split(/[\s,]+/).filter(t => t && !RECIPE_STOPWORDS.includes(t));
+  // Skip if nothing left or just one short word
+  if (tokens.length === 0) return null;
+  // Take up to first 4 meaningful tokens for the name
+  let name = tokens.slice(0, 4).join(' ').trim();
+  // Strip trailing punctuation
+  name = name.replace(/[,;:.\-–—]+$/, '').trim();
+  if (name.length < 2) return null;
+  // Capitalise
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
 
 function categorize(name) {
   const n = name.toLowerCase();
@@ -935,6 +1104,21 @@ function categorize(name) {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// H11 fix: debounce renders so realtime bursts (e.g. partner adds 20 items in
+// quick succession) don't cause 20 sequential renders. 30ms is imperceptible
+// but batches together events arriving in the same tick.
+let renderDebounce = null;
+function scheduleRender() {
+  if (renderDebounce) return;
+  renderDebounce = setTimeout(() => {
+    renderDebounce = null;
+    _renderNow();
+  }, 30);
+}
+
+// Public render: immediate for user-triggered actions
+function render() { _renderNow(); }
 
 function haptic(ms = 10) {
   if (navigator.vibrate) try { navigator.vibrate(ms); } catch(e) {}
@@ -950,7 +1134,7 @@ function fmtMoney(n) {
 // ════════════════════════════════════════════════════════════════════════════
 
 const DB_NAME = 'trolley-v5';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 let db = null;
 
 function openDB() {
@@ -958,8 +1142,16 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = e => {
       const d = e.target.result;
-      ['shops','master_items','current_list','trips','app_state','categories','price_history']
+      const tx = e.target.transaction;
+      ['shops','master_items','current_list','trips','categories','price_history',
+       'meals','meal_ingredients','out_of_stock']
         .forEach(s => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: 'id' }); });
+      // app_state uses 'key' as primary key to match Supabase. If it was previously
+      // created with keyPath 'id', recreate it.
+      if (d.objectStoreNames.contains('app_state')) {
+        try { d.deleteObjectStore('app_state'); } catch (e) {}
+      }
+      d.createObjectStore('app_state', { keyPath: 'key' });
       if (!d.objectStoreNames.contains('order_map')) d.createObjectStore('order_map', { keyPath: ['shop_id','name'] });
       if (!d.objectStoreNames.contains('sync_queue')) d.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
     };
@@ -1014,35 +1206,166 @@ async function dbReplaceAll(store, items) {
 // ════════════════════════════════════════════════════════════════════════════
 
 async function enqueue(op) {
+  // For inserts of rows with a client_uuid, capture local_id for later FK remapping
+  if (op.op === 'insert' && op.payload && op.payload.client_uuid) {
+    const stateKey = tableToStateKey(op.table);
+    if (stateKey) {
+      const src = state[stateKey].find(r => r.client_uuid === op.payload.client_uuid);
+      if (src && src.id != null) op.local_id = src.id;
+    }
+  }
+  // Track pending client_uuids so realtime deltas don't overwrite local state mid-flight
+  const uuid = op.payload?.client_uuid || op.match?.client_uuid;
+  if (uuid) pendingUuids.add(uuid);
   await dbPut('sync_queue', { ...op, ts: Date.now() });
   updateQueueBadge();
   flushQueue();
 }
 
-async function flushQueue() {
-  if (!supabase || !navigator.onLine) return;
-  const items = await dbAll('sync_queue');
-  for (const item of items) {
-    try {
-      let q = supabase.from(item.table);
-      if (item.op === 'insert')   { const { error } = await q.insert(item.payload); if (error) throw error; }
-      else if (item.op === 'upsert') { const { error } = await q.upsert(item.payload); if (error) throw error; }
-      else if (item.op === 'update') {
-        let qu = q.update(item.payload);
-        for (const [k, v] of Object.entries(item.match)) qu = qu.eq(k, v);
-        const { error } = await qu; if (error) throw error;
-      } else if (item.op === 'delete') {
-        let qu = q.delete();
-        for (const [k, v] of Object.entries(item.match)) qu = qu.eq(k, v);
-        const { error } = await qu; if (error) throw error;
+// Client UUIDs with pending queue operations. Realtime deltas for these are
+// ignored to prevent races where a server INSERT broadcast overwrites a local
+// follow-up UPDATE (e.g. rapid tap +need then +qty).
+const pendingUuids = new Set();
+
+function tableToStateKey(table) {
+  return ({
+    master_items: 'master', current_list: 'current',
+    shops: 'shops', trips: 'trips', categories: 'categories',
+    price_history: 'priceHistory',
+    meals: 'meals', meal_ingredients: 'mealIngredients',
+    out_of_stock: 'outOfStock',
+  })[table];
+}
+
+// Map from local fake bigint IDs to real Supabase IDs, populated when an insert
+// returns its serverside id. Used to rewrite foreign keys in subsequent ops.
+// Persisted to IndexedDB so it survives reloads (C2 fix).
+const idMap = {
+  master_items: {},  // localId -> serverId
+  shops:        {},
+  categories:   {},
+};
+
+async function loadIdMap() {
+  try {
+    const rows = await dbAll('app_state');
+    for (const r of rows) {
+      if (r.key === 'idMap') {
+        try { Object.assign(idMap, JSON.parse(r.value)); } catch (e) {}
       }
-      await dbDelete('sync_queue', item.id);
-    } catch (e) {
-      console.warn('Sync failed:', item, e);
-      break;
     }
+  } catch (e) {}
+}
+
+async function saveIdMap() {
+  try {
+    await dbPut('app_state', { key: 'idMap', value: JSON.stringify(idMap) });
+  } catch (e) {}
+}
+
+// Rewrite foreign keys in a payload using idMap before sending
+function rewriteFKs(table, payload) {
+  if (!payload) return payload;
+  const out = { ...payload };
+  if (out.master_item_id != null && idMap.master_items[out.master_item_id] != null) {
+    out.master_item_id = idMap.master_items[out.master_item_id];
   }
-  updateQueueBadge();
+  if (out.shop_id != null && idMap.shops[out.shop_id] != null) {
+    out.shop_id = idMap.shops[out.shop_id];
+  }
+  return out;
+}
+
+let isFlushing = false; // prevent concurrent flushes  (S3 typo fix)
+
+async function flushQueue() {
+  if (!supabase || !navigator.onLine || isFlushing) return;
+  isFlushing = true;
+  try {
+    const items = await dbAll('sync_queue');
+    for (const item of items) {
+      try {
+        let q = supabase.from(item.table);
+
+        if (item.op === 'insert') {
+          const payload = rewriteFKs(item.table, item.payload);
+          // Insert and capture server-assigned id so subsequent ops can be remapped
+          const { data, error } = await q.insert(payload).select().single();
+          if (error) throw error;
+          // If this row had a local fake id stored on the original op, remember the mapping
+          if (item.local_id != null && data && data.id != null && data.id !== item.local_id) {
+            if (idMap[item.table]) idMap[item.table][item.local_id] = data.id;
+            await saveIdMap();  // C2 fix: persist immediately
+            // Update local row to use server id
+            await rewriteLocalId(item.table, item.local_id, data);
+          }
+        } else if (item.op === 'upsert') {
+          const payload = rewriteFKs(item.table, item.payload);
+          const { error } = await q.upsert(payload); if (error) throw error;
+        } else if (item.op === 'update') {
+          const payload = rewriteFKs(item.table, item.payload);
+          let qu = q.update(payload);
+          for (const [k, v] of Object.entries(item.match)) {
+            // Remap match.id if we've learned a server id for it
+            const remapped = (k === 'id' && idMap[item.table] && idMap[item.table][v] != null)
+              ? idMap[item.table][v] : v;
+            qu = qu.eq(k, remapped);
+          }
+          const { error } = await qu; if (error) throw error;
+        } else if (item.op === 'delete') {
+          let qu = q.delete();
+          for (const [k, v] of Object.entries(item.match)) {
+            const remapped = (k === 'id' && idMap[item.table] && idMap[item.table][v] != null)
+              ? idMap[item.table][v] : v;
+            qu = qu.eq(k, remapped);
+          }
+          const { error } = await qu; if (error) throw error;
+        }
+        await dbDelete('sync_queue', item.id);
+        // Clear pending lock once this op is done so realtime can resume
+        const doneUuid = item.payload?.client_uuid || item.match?.client_uuid;
+        if (doneUuid) {
+          // Only clear if no later ops in queue still target this uuid
+          const remaining = await dbAll('sync_queue');
+          const stillPending = remaining.some(o =>
+            (o.payload?.client_uuid === doneUuid) || (o.match?.client_uuid === doneUuid)
+          );
+          if (!stillPending) pendingUuids.delete(doneUuid);
+        }
+      } catch (e) {
+        console.warn('Sync failed:', item, e);
+        // Increment fail count; drop after 5 retries to avoid infinite stuck queue
+        item.fail_count = (item.fail_count || 0) + 1;
+        if (item.fail_count >= 5) {
+          console.error('Dropping queued op after 5 retries:', item);
+          await dbDelete('sync_queue', item.id);
+          const droppedUuid = item.payload?.client_uuid || item.match?.client_uuid;
+          if (droppedUuid) pendingUuids.delete(droppedUuid);
+        } else {
+          await dbPut('sync_queue', item);
+          break; // stop processing this batch; will retry later
+        }
+      }
+    }
+  } finally {
+    isFlushing = false;
+    updateQueueBadge();
+  }
+}
+
+// When an insert returns a real server ID, update the local cache so subsequent
+// in-memory operations target the right row
+async function rewriteLocalId(table, oldId, serverRow) {
+  const storeName = table;
+  const stateKey = tableToStateKey(table);
+  if (!stateKey) return;
+  const local = state[stateKey];
+  const row = local.find(r => r.id === oldId);
+  if (row) {
+    await dbDelete(storeName, oldId);
+    Object.assign(row, serverRow);
+    await dbPut(storeName, row);
+  }
 }
 
 async function updateQueueBadge() {
@@ -1064,6 +1387,7 @@ let supabase = null;
 let state = {
   shops: [], master: [], current: [], trips: [], orderMap: {},
   categories: [], priceHistory: [], activeShopId: null,
+  meals: [], mealIngredients: [], outOfStock: [],
 };
 let currentView = 'trip';
 let currentTab = 'all';
@@ -1077,6 +1401,15 @@ let isListening = false;
 let scannerStream = null;
 let scannerDetector = null;
 let qrScannerStream = null;
+
+// M2: Set of client_uuids of items just added in last few seconds — render
+// adds .flash-new class so user sees visual confirmation
+const recentlyAdded = new Set();
+function markRecentlyAdded(uuid) {
+  if (!uuid) return;
+  recentlyAdded.add(uuid);
+  setTimeout(() => { recentlyAdded.delete(uuid); }, 1200);
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // CONFIG / CONNECTION
@@ -1122,8 +1455,14 @@ window.disconnect = function() {
 };
 
 window.clearLocalCache = async function() {
-  if (!confirm('Clear local cache and reload?')) return;
-  for (const s of ['shops','master_items','current_list','trips','order_map','app_state','categories','price_history']) {
+  // H14 fix: warn explicitly about queue
+  const queueItems = await dbAll('sync_queue');
+  let msg = 'Clear local cache and reload?';
+  if (queueItems.length > 0) {
+    msg = `You have ${queueItems.length} pending sync${queueItems.length > 1 ? 's' : ''} that haven't reached the server yet. Clearing cache will discard them. Continue?`;
+  }
+  if (!confirm(msg)) return;
+  for (const s of ['shops','master_items','current_list','trips','order_map','app_state','categories','price_history','sync_queue']) {
     await dbClear(s);
   }
   closeSettings();
@@ -1149,8 +1488,12 @@ async function init() {
   db = await openDB();
   supabase = createClient(cfg.url, cfg.key);
 
+  await loadIdMap();         // C2 fix: restore mapping from previous session
   await loadAllFromLocal();
   ensureBuiltinCategories();
+  // H12 fix: restore currentTripOrder from existing collected items so route
+  // learning isn't broken by a mid-shop refresh
+  currentTripOrder = state.current.filter(i => i.collected_at).length;
   render();
   setSyncStatus(navigator.onLine ? 'syncing' : 'offline');
 
@@ -1160,14 +1503,17 @@ async function init() {
   }
 
   supabase.channel('trolley-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shops' }, syncShops)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_items' }, syncMaster)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'current_list' }, syncCurrent)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_map' }, syncOrderMap)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, syncTrips)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, syncAppState)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, syncCategories)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'price_history' }, syncPriceHistory)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shops' }, p => applyDelta('shops', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_items' }, p => applyDelta('master_items', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'current_list' }, p => applyDelta('current_list', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_map' }, p => applyOrderMapDelta(p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, p => applyDelta('trips', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, p => applyAppStateDelta(p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, p => applyDelta('categories', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'price_history' }, p => applyDelta('price_history', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'meals' }, p => applyDelta('meals', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'meal_ingredients' }, p => applyDelta('meal_ingredients', p))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'out_of_stock' }, p => applyDelta('out_of_stock', p))
     .subscribe();
 
   flushQueue();
@@ -1175,6 +1521,8 @@ async function init() {
   window.addEventListener('offline', onOffline);
   updateQueueBadge();
   populateCategorySelect();
+  // M8: show offline banner if already offline on launch
+  if (!navigator.onLine) document.getElementById('offlineBanner').classList.add('show');
 
   // Show tour if first time
   if (!localStorage.getItem('trolley_tour_done')) {
@@ -1210,6 +1558,9 @@ async function loadAllFromLocal() {
   state.trips        = (await dbAll('trips')).sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
   state.categories   = await dbAll('categories');
   state.priceHistory = await dbAll('price_history');
+  state.meals            = await dbAll('meals');
+  state.mealIngredients  = await dbAll('meal_ingredients');
+  state.outOfStock       = await dbAll('out_of_stock');
   const om = await dbAll('order_map');
   state.orderMap = {};
   for (const row of om) {
@@ -1225,7 +1576,8 @@ async function loadAllFromLocal() {
 async function loadAllFromCloud() {
   await Promise.all([
     syncShops(), syncMaster(), syncCurrent(), syncOrderMap(),
-    syncTrips(), syncAppState(), syncCategories(), syncPriceHistory()
+    syncTrips(), syncAppState(), syncCategories(), syncPriceHistory(),
+    syncMeals(), syncMealIngredients(), syncOutOfStock()
   ]);
 }
 
@@ -1238,7 +1590,7 @@ async function syncShops() {
     const def = state.shops.find(s => s.is_default) || state.shops[0];
     state.activeShopId = def.id;
   }
-  render();
+  scheduleRender();
 }
 
 async function syncMaster() {
@@ -1246,7 +1598,7 @@ async function syncMaster() {
   if (error) return;
   state.master = data || [];
   await dbReplaceAll('master_items', state.master);
-  render();
+  scheduleRender();
 }
 
 async function syncCurrent() {
@@ -1254,7 +1606,7 @@ async function syncCurrent() {
   if (error) return;
   state.current = data || [];
   await dbReplaceAll('current_list', state.current);
-  render();
+  scheduleRender();
 }
 
 async function syncOrderMap() {
@@ -1266,7 +1618,7 @@ async function syncOrderMap() {
     state.orderMap[row.shop_id][row.name] = row.score;
   }
   await dbReplaceAll('order_map', data || []);
-  render();
+  scheduleRender();
 }
 
 async function syncTrips() {
@@ -1274,7 +1626,7 @@ async function syncTrips() {
   if (error) return;
   state.trips = data || [];
   await dbReplaceAll('trips', state.trips);
-  render();
+  scheduleRender();
 }
 
 async function syncAppState() {
@@ -1282,22 +1634,25 @@ async function syncAppState() {
   if (error) return;
   for (const r of (data || [])) {
     if (r.key === 'active_shop_id') state.activeShopId = Number(r.value);
-    await dbPut('app_state', { id: r.key, ...r });
+    await dbPut('app_state', { key: r.key, value: r.value });
   }
-  render();
+  scheduleRender();
 }
 
 async function syncCategories() {
   const { data, error } = await supabase.from('categories').select('*').order('sort_order');
   if (error) { ensureBuiltinCategories(); return; }
   if (data && data.length) {
-    state.categories = data;
+    // C4 fix: dedupe by key — server wins over local placeholder
+    const byKey = {};
+    for (const row of data) byKey[row.key] = row;
+    state.categories = Object.values(byKey);
     await dbReplaceAll('categories', state.categories);
   } else {
     ensureBuiltinCategories();
   }
   populateCategorySelect();
-  render();
+  scheduleRender();
 }
 
 async function syncPriceHistory() {
@@ -1305,18 +1660,163 @@ async function syncPriceHistory() {
   if (error) return;
   state.priceHistory = data || [];
   await dbReplaceAll('price_history', state.priceHistory);
-  render();
+  scheduleRender();
+}
+
+async function syncMeals() {
+  const { data, error } = await supabase.from('meals').select('*').order('name');
+  if (error) return;
+  state.meals = data || [];
+  await dbReplaceAll('meals', state.meals);
+  scheduleRender();
+}
+
+async function syncMealIngredients() {
+  const { data, error } = await supabase.from('meal_ingredients').select('*').order('sort_order');
+  if (error) return;
+  state.mealIngredients = data || [];
+  await dbReplaceAll('meal_ingredients', state.mealIngredients);
+  scheduleRender();
+}
+
+async function syncOutOfStock() {
+  const { data, error } = await supabase.from('out_of_stock').select('*');
+  if (error) return;
+  state.outOfStock = data || [];
+  await dbReplaceAll('out_of_stock', state.outOfStock);
+  scheduleRender();
+}
+
+// Apply a realtime postgres_changes payload directly without full refetch.
+// payload has: { eventType: 'INSERT'|'UPDATE'|'DELETE', new, old, table }
+async function applyDelta(table, payload) {
+  const stateKey = tableToStateKey(table);
+  if (!stateKey) return;
+  const arr = state[stateKey];
+
+  // Bug fix: skip realtime overwrite if we have a pending local change for this
+  // row (prevents rapid-tap qty loss and prevents server INSERT broadcast from
+  // wiping a follow-up local UPDATE)
+  const incomingUuid = payload.new?.client_uuid || payload.old?.client_uuid;
+  if (incomingUuid && pendingUuids.has(incomingUuid)) {
+    return;
+  }
+
+  // C4 fix: for categories, match by 'key' (unique business identifier) as well
+  // as by client_uuid/id. Prevents duplication when local placeholders (ID 10000+)
+  // collide with server-assigned IDs (1-11) for the same category.
+  const findMatch = (row) => arr.findIndex(r =>
+    (row.client_uuid && r.client_uuid === row.client_uuid) ||
+    (table === 'categories' && row.key && r.key === row.key) ||
+    r.id === row.id
+  );
+
+  if (payload.eventType === 'DELETE') {
+    const idx = findMatch(payload.old);
+    if (idx >= 0) {
+      arr.splice(idx, 1);
+      try { await dbDelete(table, payload.old.id); } catch (e) {}
+    }
+  } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+    const newRow = payload.new;
+    const idx = findMatch(newRow);
+    if (idx >= 0) {
+      // If category had a placeholder id (10000+), drop the old id from IndexedDB
+      // before merging in server data with the real id
+      const oldId = arr[idx].id;
+      Object.assign(arr[idx], newRow);
+      if (oldId !== newRow.id) {
+        try { await dbDelete(table, oldId); } catch (e) {}
+      }
+      await dbPut(table, arr[idx]);
+    } else {
+      arr.push(newRow);
+      await dbPut(table, newRow);
+    }
+  }
+  if (table === 'trips') {
+    state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+  }
+  // Bug fix: dedup current_list after any change (multi-device race protection)
+  if (table === 'current_list') dedupCurrentList();
+  scheduleRender();
+}
+
+async function applyOrderMapDelta(payload) {
+  if (payload.eventType === 'DELETE') {
+    const o = payload.old;
+    if (state.orderMap[o.shop_id]) delete state.orderMap[o.shop_id][o.name];
+    try { await dbDelete('order_map', [o.shop_id, o.name]); } catch (e) {}
+  } else {
+    const n = payload.new;
+    if (!state.orderMap[n.shop_id]) state.orderMap[n.shop_id] = {};
+    state.orderMap[n.shop_id][n.name] = n.score;
+    await dbPut('order_map', n);
+  }
+  scheduleRender();
+}
+
+async function applyAppStateDelta(payload) {
+  if (payload.eventType === 'DELETE') {
+    try { await dbDelete('app_state', payload.old.key); } catch (e) {}
+  } else {
+    const n = payload.new;
+    if (n.key === 'active_shop_id') state.activeShopId = Number(n.value);
+    await dbPut('app_state', { key: n.key, value: n.value });
+  }
+  scheduleRender();
+}
+
+// Merge duplicate current_list rows when they look like accidental dupes
+// (created within a short time window, both still at default quantity).
+// Doesn't touch rows the user has clearly customised.
+async function dedupCurrentList() {
+  const byMaster = {}; // master_item_id -> [rows]
+  for (const item of state.current) {
+    if (item.collected_at || !item.master_item_id) continue;
+    if (!byMaster[item.master_item_id]) byMaster[item.master_item_id] = [];
+    byMaster[item.master_item_id].push(item);
+  }
+  const toDelete = [];
+  for (const masterId in byMaster) {
+    const rows = byMaster[masterId];
+    if (rows.length < 2) continue;
+    // C1 fix: only treat as accidental duplicates if:
+    // (a) all rows have quantity == 1 (default; user hasn't bumped)
+    // (b) all rows were added within a 5-second window
+    rows.sort((a,b) => new Date(a.added_at) - new Date(b.added_at));
+    const allDefaultQty = rows.every(r => (r.quantity || 1) === 1);
+    const timeSpan = new Date(rows[rows.length-1].added_at) - new Date(rows[0].added_at);
+    if (!allDefaultQty || timeSpan > 5000) continue;
+    // Safe to merge: keep first, delete rest, set qty to count
+    const keeper = rows[0];
+    const dupes = rows.slice(1);
+    keeper.quantity = rows.length;
+    keeper.need_more = rows.some(r => r.need_more);
+    await dbPut('current_list', keeper);
+    await enqueue({ op: 'update', table: 'current_list',
+      payload: { quantity: keeper.quantity, need_more: keeper.need_more },
+      match: matchBy(keeper) });
+    for (const d of dupes) toDelete.push(d);
+  }
+  for (const d of toDelete) {
+    state.current = state.current.filter(c => c.id !== d.id);
+    try { await dbDelete('current_list', d.id); } catch (e) {}
+    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(d) });
+  }
 }
 
 function onOnline() {
   setSyncStatus('syncing');
   document.getElementById('netStatus').textContent = 'online';
+  document.getElementById('offlineBanner').classList.remove('show');
   flushQueue().then(() => loadAllFromCloud()).then(() => setSyncStatus('connected'));
 }
 
 function onOffline() {
   setSyncStatus('offline');
   document.getElementById('netStatus').textContent = 'offline (queued)';
+  document.getElementById('offlineBanner').classList.add('show');
 }
 
 function setSyncStatus(s) {
@@ -1331,6 +1831,89 @@ window.forceSync = async function() {
   await loadAllFromCloud();
   setSyncStatus('connected');
   showToast('synced');
+};
+
+// S8 fix: export everything as JSON for backup / portability
+window.exportData = async function() {
+  const data = {
+    version: 'v5.6',
+    exported_at: new Date().toISOString(),
+    shops: state.shops,
+    master_items: state.master,
+    current_list: state.current,
+    order_map: state.orderMap,
+    trips: state.trips,
+    categories: state.categories,
+    price_history: state.priceHistory,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `trolley-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('exported');
+};
+
+// S8 fix: import from JSON. Adds, doesn't overwrite — anything with a matching
+// client_uuid or name is preserved, new items are inserted.
+window.importData = async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('Import data from backup? This will add items to your existing data — duplicates will be skipped by name.')) {
+    e.target.value = '';
+    return;
+  }
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || typeof data !== 'object') throw new Error('Not a valid backup file');
+    let imported = { master: 0, trips: 0 };
+
+    // Import master items (skip duplicates by name)
+    for (const m of (data.master_items || [])) {
+      if (state.master.find(x => x.name.toLowerCase() === m.name.toLowerCase())) continue;
+      const newRow = {
+        ...m,
+        id: genId(),
+        client_uuid: m.client_uuid || genUuid(),
+      };
+      state.master.push(newRow);
+      await dbPut('master_items', newRow);
+      const { id, ...payload } = newRow;
+      await enqueue({ op: 'insert', table: 'master_items', payload });
+      imported.master++;
+    }
+
+    // Import trips (skip duplicates by completed_at + item_count)
+    for (const t of (data.trips || [])) {
+      const dupe = state.trips.find(x =>
+        x.completed_at === t.completed_at && x.item_count === t.item_count
+      );
+      if (dupe) continue;
+      const newTrip = {
+        ...t,
+        id: genId(),
+        client_uuid: t.client_uuid || genUuid(),
+      };
+      state.trips.push(newTrip);
+      await dbPut('trips', newTrip);
+      const { id, ...payload } = newTrip;
+      await enqueue({ op: 'insert', table: 'trips', payload });
+      imported.trips++;
+    }
+
+    state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+    render();
+    closeSettings();
+    showToast(`imported ${imported.master} items, ${imported.trips} trips`);
+  } catch (err) {
+    showToast('import failed: ' + err.message);
+  }
+  e.target.value = '';
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1354,7 +1937,14 @@ function getOrderScore(item) {
   if (item.aisle_override != null) return item.aisle_override * 1.0;
   const name = (item.name || '').toLowerCase().trim();
   const m = state.orderMap[state.activeShopId] || {};
-  return m[name] != null ? m[name] : 9999;
+  if (m[name] != null) return m[name];
+  // M5 fix: use category sort_order as a soft fallback so unlearned items
+  // group with their category rather than all piling at the end at score 9999
+  if (item.category) {
+    const cat = state.categories.find(c => c.key === item.category);
+    if (cat) return 5000 + (cat.sort_order || 100);  // somewhere between learned and "way at end"
+  }
+  return 9999;
 }
 
 function hasLearnedOrder(name) {
@@ -1403,14 +1993,32 @@ function computeCadenceSuggestions() {
   const suggestions = [];
   const now = Date.now();
   const onListNames = new Set(state.current.filter(c => !c.collected_at).map(c => c.name.toLowerCase()));
+  const snoozed = getSnoozedSuggestions(); // M4
+  // M14 fix: account for actual shopping frequency (skipped trips shouldn't make
+  // everything "due"). Compute average trip-to-trip gap and only mark items due
+  // if they're overdue relative to BOTH purchase cadence and trip cadence.
+  const tripDates = state.trips.map(t => new Date(t.completed_at)).sort((a, b) => a - b);
+  let avgTripGap = 7; // default fallback: weekly
+  if (tripDates.length >= 2) {
+    let g = 0;
+    for (let i = 1; i < tripDates.length; i++) g += (tripDates[i] - tripDates[i-1]) / 86400000;
+    avgTripGap = g / (tripDates.length - 1);
+  }
+  const daysSinceLastTrip = tripDates.length > 0
+    ? (now - tripDates[tripDates.length - 1]) / 86400000
+    : 999;
 
   for (const m of state.master) {
+    if (snoozed[m.name.toLowerCase()]) continue; // M4 fix
     const dates = (purchaseDates[m.name] || []).sort((a, b) => a - b);
     if (dates.length < 2) continue;
     let totalGap = 0;
     for (let i = 1; i < dates.length; i++) totalGap += (dates[i] - dates[i-1]) / 86400000;
     const avgGap = totalGap / (dates.length - 1);
     const daysSinceLast = (now - dates[dates.length - 1]) / 86400000;
+    // M14 fix: don't suggest items if we haven't even been near a normal trip yet
+    // (e.g. on holiday, app shouldn't shout "everything's due")
+    if (daysSinceLastTrip < avgTripGap * 0.5) continue;
     if (daysSinceLast >= 0.85 * avgGap && !onListNames.has(m.name.toLowerCase())) {
       suggestions.push({
         name: m.name, id: m.id,
@@ -1422,6 +2030,31 @@ function computeCadenceSuggestions() {
   }
   return suggestions.sort((a, b) => b.urgency - a.urgency).slice(0, 8);
 }
+
+// M4: snooze tracking — persisted in localStorage
+function getSnoozedSuggestions() {
+  try {
+    const raw = localStorage.getItem('trolley_snoozed');
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    // Expire snoozes older than 14 days
+    const cutoff = Date.now() - 14 * 86400000;
+    const filtered = {};
+    for (const [name, ts] of Object.entries(obj)) {
+      if (ts > cutoff) filtered[name] = ts;
+    }
+    return filtered;
+  } catch (e) {
+    return {};
+  }
+}
+window.snoozeSuggestion = function(name) {
+  const s = getSnoozedSuggestions();
+  s[name.toLowerCase()] = Date.now();
+  localStorage.setItem('trolley_snoozed', JSON.stringify(s));
+  haptic(8);
+  render();
+};
 
 function computeDormantItems() {
   const purchaseDates = {};
@@ -1439,21 +2072,29 @@ function computeDormantItems() {
   });
 }
 
-// Predict quantity for an item based on past trip averages
+// Predict quantity for an item based on past trips, weighting recent ones higher.
 function predictQty(masterId) {
   const m = state.master.find(x => x.id === masterId);
   if (!m) return 1;
   if (m.default_qty && m.default_qty > 1) return m.default_qty;
-  // Else look at recent trips
-  const qtys = [];
+  // M3 fix: weight recent trips exponentially higher than older ones
+  // Each older trip counts half as much as the previous one
+  const weighted = {};
+  let weight = 1.0;
   for (const t of state.trips.slice(0, 10)) {
     for (const i of (t.items || [])) {
-      if (i.name === m.name) qtys.push(i.quantity || 1);
+      if (i.name === m.name) {
+        const q = i.quantity || 1;
+        weighted[q] = (weighted[q] || 0) + weight;
+      }
     }
+    weight *= 0.7; // older trip → less weight
   }
-  if (qtys.length === 0) return 1;
-  const avg = qtys.reduce((a,b) => a+b, 0) / qtys.length;
-  return Math.max(1, Math.round(avg));
+  const entries = Object.entries(weighted);
+  if (entries.length === 0) return 1;
+  // Pick the qty with highest weighted score; ties broken by higher qty
+  entries.sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]));
+  return Math.max(1, parseInt(entries[0][0]) || 1);
 }
 
 // Best price across shops for an item
@@ -1490,6 +2131,7 @@ window.setView = function(v) {
   const show = {
     trip:   { tripStats: 1, progressTrack: 1, subTabs: 1, searchRow: 1, actionsRow: 1 },
     master: { searchRow: 1 },
+    meals:  { searchRow: 1 },
     history:{},
   }[v] || {};
   for (const id of ids) {
@@ -1499,9 +2141,10 @@ window.setView = function(v) {
   const addInput = document.getElementById('addInput');
   const searchInput = document.getElementById('searchInput');
   searchInput.value = '';
-  if (v === 'trip')   { searchInput.placeholder = 'search trip...';   addInput.placeholder = 'add to trip...'; }
-  if (v === 'master') { searchInput.placeholder = 'search master...'; addInput.placeholder = 'add to master list...'; }
-  if (v === 'history'){ addInput.placeholder = ''; }
+  if (v === 'trip')    { searchInput.placeholder = 'search trip...';   addInput.placeholder = 'add to trip...'; }
+  if (v === 'master')  { searchInput.placeholder = 'search master...'; addInput.placeholder = 'add to master list...'; }
+  if (v === 'meals')   { searchInput.placeholder = 'search meals...';  addInput.placeholder = 'name new meal...'; }
+  if (v === 'history') { addInput.placeholder = ''; }
   render();
 };
 
@@ -1518,11 +2161,39 @@ window.setTab = function(tab) {
 
 function genId() { return Date.now() + Math.floor(Math.random() * 100000); }
 
+// UUID for client-generated stable IDs (bug fix: prevents ID collision after sync)
+function genUuid() {
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  // Fallback
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+// Resolve a local row by client_uuid first, then by id (handles post-sync renumbering)
+function resolveCurrentItem(idOrUuid) {
+  return state.current.find(c => c.client_uuid === idOrUuid)
+      || state.current.find(c => String(c.id) === String(idOrUuid));
+}
+function resolveMasterItem(idOrUuid) {
+  return state.master.find(m => m.client_uuid === idOrUuid)
+      || state.master.find(m => String(m.id) === String(idOrUuid));
+}
+
+// Get the right match key for queued operations - prefer client_uuid (stable)
+// over server-assigned id (can change after first sync)
+function matchBy(row) {
+  if (row && row.client_uuid) return { client_uuid: row.client_uuid };
+  return { id: row.id };
+}
+
 async function findOrCreateMaster(name) {
   let m = state.master.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (m) return m;
+  const uuid = genUuid();
   const newItem = {
-    id: genId(), name, category: categorize(name),
+    id: genId(), client_uuid: uuid, name, category: categorize(name),
     notes: null, est_price: null, image_url: null,
     default_qty: 1, aisle_override: null, last_low_flagged_at: null, sort_order: null,
     is_staple: false, times_bought: 0, last_bought_at: null,
@@ -1539,36 +2210,64 @@ window.addItem = async function() {
   const input = document.getElementById('addInput');
   const raw = input.value.trim();
   if (!raw || currentView === 'history') return;
+
+  // Meals view: create a new meal from the input
+  if (currentView === 'meals') {
+    input.value = '';
+    haptic(8);
+    await createMeal(raw);
+    input.focus();
+    return;
+  }
+
   const names = raw.split(/[,;]|\sand\s/i).map(s => s.trim()).filter(Boolean);
   input.value = '';
   haptic(8);
+  let masterAdded = 0;
+  let masterSkipped = 0;
+  let tripAdded = 0;
   for (const name of names) {
     if (currentView === 'master') {
-      if (state.master.find(m => m.name.toLowerCase() === name.toLowerCase())) continue;
+      if (state.master.find(m => m.name.toLowerCase() === name.toLowerCase())) {
+        masterSkipped++;
+        continue;
+      }
       await findOrCreateMaster(name);
+      masterAdded++;
     } else {
       const master = await findOrCreateMaster(name);
       const existing = state.current.find(c => c.name.toLowerCase() === master.name.toLowerCase() && !c.collected_at);
       if (existing) {
         existing.quantity += 1;
         await dbPut('current_list', existing);
-        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
+        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
       } else {
         const qty = predictQty(master.id);
         const newRow = {
-          id: genId(), master_item_id: master.id, name: master.name,
+          id: genId(), client_uuid: genUuid(),
+          master_item_id: master.id,
+          name: master.name,
           quantity: qty, need_more: false, collected_at: null,
           added_at: new Date().toISOString(),
         };
-        state.current.push(newRow);
+        state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
         await dbPut('current_list', newRow);
         const { id, ...payload } = newRow;
         await enqueue({ op: 'insert', table: 'current_list', payload });
       }
+      tripAdded++;
     }
   }
   render();
   input.focus();
+  // Bug 3 fix: confirmation toast for master-list adds
+  if (currentView === 'master') {
+    if (masterAdded > 0 && masterSkipped === 0)      showToast(`✓ added ${masterAdded} to master`);
+    else if (masterAdded > 0 && masterSkipped > 0)   showToast(`✓ added ${masterAdded}, ${masterSkipped} already existed`);
+    else if (masterAdded === 0 && masterSkipped > 0) showToast(masterSkipped === 1 ? 'already in master list' : `${masterSkipped} already existed`);
+  } else if (tripAdded > 0) {
+    showToast(tripAdded === 1 ? '✓ added to trip' : `✓ added ${tripAdded} to trip`);
+  }
 };
 
 window.addToTrip = async function(masterId) {
@@ -1579,15 +2278,24 @@ window.addToTrip = async function(masterId) {
   if (existing) {
     existing.quantity += 1;
     await dbPut('current_list', existing);
-    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
+    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
   } else {
+    // Bug fix: also check by name in case master IDs got reshuffled by sync
+    const byName = state.current.find(c => c.name.toLowerCase() === master.name.toLowerCase() && !c.collected_at);
+    if (byName) {
+      byName.quantity += 1;
+      await dbPut('current_list', byName);
+      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: byName.quantity }, match: matchBy(byName) });
+      render();
+      return;
+    }
     const qty = predictQty(masterId);
     const newRow = {
-      id: genId(), master_item_id: masterId, name: master.name,
+      id: genId(), client_uuid: genUuid(), master_item_id: masterId, name: master.name,
       quantity: qty, need_more: false, collected_at: null,
       added_at: new Date().toISOString(),
     };
-    state.current.push(newRow);
+    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
     await dbPut('current_list', newRow);
     const { id, ...payload } = newRow;
     await enqueue({ op: 'insert', table: 'current_list', payload });
@@ -1603,7 +2311,7 @@ window.adjustQty = async function(currentId, delta) {
   haptic(5);
   item.quantity = newQty;
   await dbPut('current_list', item);
-  await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: { id: currentId } });
+  await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: matchBy(item) });
   render();
 };
 
@@ -1616,11 +2324,11 @@ window.adjustMasterQty = async function(masterId, delta) {
   if (newQty <= 0) {
     state.current = state.current.filter(c => c.id !== onList.id);
     await dbDelete('current_list', onList.id);
-    await enqueue({ op: 'delete', table: 'current_list', match: { id: onList.id } });
+    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(onList) });
   } else {
     onList.quantity = newQty;
     await dbPut('current_list', onList);
-    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: { id: onList.id } });
+    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: matchBy(onList) });
   }
   render();
 };
@@ -1633,12 +2341,12 @@ window.toggleCollected = async function(id) {
     item.collected_at = new Date().toISOString();
     item.need_more = false;
     await dbPut('current_list', item);
-    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: item.collected_at, need_more: false }, match: { id } });
+    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: item.collected_at, need_more: false }, match: matchBy(item) });
     await recordCollection(item.name.toLowerCase().trim(), currentTripOrder++);
   } else {
     item.collected_at = null;
     await dbPut('current_list', item);
-    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: null }, match: { id } });
+    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: null }, match: matchBy(item) });
     currentTripOrder = Math.max(0, currentTripOrder - 1);
   }
   render();
@@ -1651,15 +2359,15 @@ window.toggleNeedMore = async function(id) {
   haptic(8);
   item.need_more = !item.need_more;
   await dbPut('current_list', item);
-  await enqueue({ op: 'update', table: 'current_list', payload: { need_more: item.need_more }, match: { id } });
+  await enqueue({ op: 'update', table: 'current_list', payload: { need_more: item.need_more }, match: matchBy(item) });
 
-  // Update master last_low_flagged_at for "running low" automation
-  if (item.need_more && item.master_item_id) {
+  // Bug 8 fix: set last_low_flagged_at when flagging, clear it when un-flagging
+  if (item.master_item_id) {
     const m = state.master.find(x => x.id === item.master_item_id);
     if (m) {
-      m.last_low_flagged_at = new Date().toISOString();
+      m.last_low_flagged_at = item.need_more ? new Date().toISOString() : null;
       await dbPut('master_items', m);
-      await enqueue({ op: 'update', table: 'master_items', payload: { last_low_flagged_at: m.last_low_flagged_at }, match: { id: m.id } });
+      await enqueue({ op: 'update', table: 'master_items', payload: { last_low_flagged_at: m.last_low_flagged_at }, match: matchBy(m) });
     }
   }
   render();
@@ -1671,7 +2379,7 @@ window.toggleStaple = async function(masterId) {
   haptic(8);
   m.is_staple = !m.is_staple;
   await dbPut('master_items', m);
-  await enqueue({ op: 'update', table: 'master_items', payload: { is_staple: m.is_staple }, match: { id: masterId } });
+  await enqueue({ op: 'update', table: 'master_items', payload: { is_staple: m.is_staple }, match: matchBy(m) });
   render();
 };
 
@@ -1681,7 +2389,7 @@ window.removeFromList = async function(id) {
   lastDeleted = { kind: 'current_list', data: { ...item } };
   state.current = state.current.filter(c => c.id !== id);
   await dbDelete('current_list', id);
-  await enqueue({ op: 'delete', table: 'current_list', match: { id } });
+  await enqueue({ op: 'delete', table: 'current_list', match: matchBy(item) });
   render();
   haptic(15);
   showToast('removed "' + item.name + '"', true);
@@ -1694,7 +2402,7 @@ window.removeFromMaster = async function(id) {
   lastDeleted = { kind: 'master_items', data: { ...m } };
   state.master = state.master.filter(x => x.id !== id);
   await dbDelete('master_items', id);
-  await enqueue({ op: 'delete', table: 'master_items', match: { id } });
+  await enqueue({ op: 'delete', table: 'master_items', match: matchBy(m) });
   render();
   haptic(15);
   showToast('removed "' + m.name + '"', true);
@@ -1714,8 +2422,18 @@ window.undoDelete = async function() {
     await enqueue({ op: 'insert', table: 'master_items', payload });
   } else if (kind === 'trip') {
     state.trips.unshift(data);
+    state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
     await dbPut('trips', data);
     await enqueue({ op: 'insert', table: 'trips', payload });
+    // Bug 4 fix: restore times_bought that was decremented when we deleted
+    for (const i of (data.items || [])) {
+      const m = state.master.find(x => x.name === i.name);
+      if (m) {
+        m.times_bought = (m.times_bought || 0) + 1;
+        await dbPut('master_items', m);
+        await enqueue({ op: 'update', table: 'master_items', payload: { times_bought: m.times_bought }, match: matchBy(m) });
+      }
+    }
   }
   lastDeleted = null;
   clearTimeout(undoTimer);
@@ -1729,7 +2447,7 @@ window.clearCollected = async function() {
   for (const c of collected) {
     state.current = state.current.filter(x => x.id !== c.id);
     await dbDelete('current_list', c.id);
-    await enqueue({ op: 'delete', table: 'current_list', match: { id: c.id } });
+    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(c) });
   }
   render();
   showToast('cleared ' + collected.length);
@@ -1737,16 +2455,19 @@ window.clearCollected = async function() {
 
 window.addAllStaples = async function() {
   const staples = state.master.filter(m => m.is_staple);
-  if (!staples.length) { showToast('no staples set yet — long-press items to mark'); return; }
+  if (!staples.length) {
+    showToast('no staples yet — go to Master, tap-hold an item, tick "staple"');
+    return;
+  }
   let added = 0;
   for (const m of staples) {
     if (state.current.find(c => c.master_item_id === m.id && !c.collected_at)) continue;
     const newRow = {
-      id: genId(), master_item_id: m.id, name: m.name,
+      id: genId(), client_uuid: genUuid(), master_item_id: m.id, name: m.name,
       quantity: predictQty(m.id), need_more: false, collected_at: null,
       added_at: new Date().toISOString(),
     };
-    state.current.push(newRow);
+    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
     await dbPut('current_list', newRow);
     const { id, ...payload } = newRow;
     await enqueue({ op: 'insert', table: 'current_list', payload });
@@ -1778,11 +2499,11 @@ window.suggestNextTrip = async function() {
     if (!m) continue;
     if (state.current.find(c => c.master_item_id === id && !c.collected_at)) continue;
     const newRow = {
-      id: genId(), master_item_id: id, name: m.name,
+      id: genId(), client_uuid: genUuid(), master_item_id: id, name: m.name,
       quantity: predictQty(id), need_more: false, collected_at: null,
       added_at: new Date().toISOString(),
     };
-    state.current.push(newRow);
+    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
     await dbPut('current_list', newRow);
     const { id: _i, ...payload } = newRow;
     await enqueue({ op: 'insert', table: 'current_list', payload });
@@ -1795,14 +2516,20 @@ window.suggestNextTrip = async function() {
 
 window.completeTrip = function() {
   const collected = state.current.filter(i => i.collected_at);
+  const uncollected = state.current.filter(i => !i.collected_at);
   if (collected.length === 0) { showToast('collect items first'); return; }
   const estCost = collected.reduce((s, i) => {
     const m = state.master.find(x => x.id === i.master_item_id);
     return s + (m && m.est_price ? m.est_price * i.quantity : 0);
   }, 0);
-  document.getElementById('tripSummary').textContent =
-    `Save trip with ${collected.length} item${collected.length !== 1 ? 's' : ''}? Est. ${fmtMoney(estCost)}.`;
-  document.getElementById('actualCost').value = '';
+  let msg = `Saving ${collected.length} collected item${collected.length !== 1 ? 's' : ''}. Est. ${fmtMoney(estCost)}.`;
+  if (uncollected.length > 0) {
+    msg += ` ${uncollected.length} uncollected item${uncollected.length !== 1 ? 's' : ''} will stay on your list.`;
+  }
+  document.getElementById('tripSummary').textContent = msg;
+  // H6 fix: pre-fill with estimate so spend tracking is opt-out not opt-in
+  document.getElementById('actualCost').value = estCost > 0 ? estCost.toFixed(2) : '';
+  document.getElementById('actualCost').placeholder = estCost > 0 ? estCost.toFixed(2) + ' (est)' : '0.00';
   document.getElementById('ocrStatus').textContent = '';
   document.getElementById('receiptInput').value = '';
   document.getElementById('tripComplete').classList.add('show');
@@ -1821,36 +2548,71 @@ window.confirmCompleteTrip = async function() {
   const totalQty = collected.reduce((s, i) => s + i.quantity, 0);
   const shop = state.shops.find(s => s.id === state.activeShopId);
   const newTrip = {
-    id: genId(), shop_id: state.activeShopId, shop_name: shop ? shop.name : null,
+    id: genId(), client_uuid: genUuid(), shop_id: state.activeShopId, shop_name: shop ? shop.name : null,
     completed_at: new Date().toISOString(),
     item_count: collected.length, total_qty: totalQty, total_cost: actualCost, items: tripItems,
   };
+
+  // C3 fix: apply all local changes first (state + IndexedDB) in tight order
+  // so the local view is consistent even if the user closes mid-flow.
+  // Then enqueue all server operations as a batch.
   state.trips.unshift(newTrip);
   await dbPut('trips', newTrip);
-  const { id, ...tripPayload } = newTrip;
-  await enqueue({ op: 'insert', table: 'trips', payload: tripPayload });
+
+  const collectedIds = new Set(collected.map(c => c.id));
+  state.current = state.current.filter(x => !collectedIds.has(x.id));
+  for (const c of collected) {
+    try { await dbDelete('current_list', c.id); } catch (e) {}
+  }
+
+  // Update master items locally
+  const masterUpdates = [];
   for (const c of collected) {
     if (!c.master_item_id) continue;
     const master = state.master.find(m => m.id === c.master_item_id);
     if (!master) continue;
     master.times_bought = (master.times_bought || 0) + 1;
     master.last_bought_at = newTrip.completed_at;
-    master.last_low_flagged_at = null; // clear low flag since just bought
+    master.last_low_flagged_at = null;
+    masterUpdates.push(master);
     await dbPut('master_items', master);
-    await enqueue({
-      op: 'update', table: 'master_items',
-      payload: { times_bought: master.times_bought, last_bought_at: master.last_bought_at, last_low_flagged_at: null },
-      match: { id: c.master_item_id }
-    });
   }
-  for (const c of collected) {
-    state.current = state.current.filter(x => x.id !== c.id);
-    await dbDelete('current_list', c.id);
-    await enqueue({ op: 'delete', table: 'current_list', match: { id: c.id } });
-  }
+
   currentTripOrder = 0;
   closeTripComplete();
   render();
+
+  // Now enqueue everything — queue is persisted to IndexedDB so it survives reload
+  const { id: tripIdLocal, ...tripPayload } = newTrip;
+  await enqueue({ op: 'insert', table: 'trips', payload: tripPayload });
+
+  for (const m of masterUpdates) {
+    await enqueue({
+      op: 'update', table: 'master_items',
+      payload: { times_bought: m.times_bought, last_bought_at: m.last_bought_at, last_low_flagged_at: null },
+      match: matchBy(m)
+    });
+  }
+
+  for (const c of collected) {
+    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(c) });
+  }
+
+  // M13 fix: clear out-of-stock flags for items bought from this shop
+  const shopId = state.activeShopId;
+  if (shopId) {
+    for (const c of collected) {
+      const oos = state.outOfStock.find(o =>
+        o.master_item_id === c.master_item_id && o.shop_id === shopId
+      );
+      if (oos) {
+        state.outOfStock = state.outOfStock.filter(o => o.id !== oos.id);
+        try { await dbDelete('out_of_stock', oos.id); } catch (e) {}
+        await enqueue({ op: 'delete', table: 'out_of_stock', match: matchBy(oos) });
+      }
+    }
+  }
+
   showToast('trip saved');
 };
 
@@ -1863,7 +2625,16 @@ window.deleteTrip = async function(id) {
   lastDeleted = { kind: 'trip', data: { ...trip } };
   state.trips = state.trips.filter(t => t.id !== id);
   await dbDelete('trips', id);
-  await enqueue({ op: 'delete', table: 'trips', match: { id } });
+  await enqueue({ op: 'delete', table: 'trips', match: matchBy(trip) });
+  // Decrement times_bought on master items mentioned in this trip
+  for (const i of (trip.items || [])) {
+    const m = state.master.find(x => x.name === i.name);
+    if (m && m.times_bought > 0) {
+      m.times_bought -= 1;
+      await dbPut('master_items', m);
+      await enqueue({ op: 'update', table: 'master_items', payload: { times_bought: m.times_bought }, match: matchBy(m) });
+    }
+  }
   render();
   showToast('trip deleted', true);
 };
@@ -1895,6 +2666,11 @@ window.openEdit = function(masterId) {
   document.getElementById('editAisle').value = m.aisle_override || '';
   document.getElementById('editImageUrl').value = m.image_url || '';
   document.getElementById('editStaple').checked = !!m.is_staple;
+  // M13: load OOS state for current shop
+  const isOOS = state.outOfStock.some(o =>
+    o.master_item_id === m.id && o.shop_id === state.activeShopId
+  );
+  document.getElementById('editOOS').checked = isOOS;
   const preview = document.getElementById('editImagePreview');
   if (m.image_url) {
     preview.src = m.image_url;
@@ -1929,14 +2705,35 @@ window.saveEdit = async function() {
   const updates = { name, category, est_price, notes, default_qty, aisle_override, image_url, is_staple };
   Object.assign(m, updates);
   await dbPut('master_items', m);
-  await enqueue({ op: 'update', table: 'master_items', payload: updates, match: { id: editingItemId } });
+  await enqueue({ op: 'update', table: 'master_items', payload: updates, match: matchBy(m) });
+
+  // M13: out-of-stock toggle
+  const wantOOS = document.getElementById('editOOS').checked;
+  const existingOOS = state.outOfStock.find(o =>
+    o.master_item_id === m.id && o.shop_id === state.activeShopId
+  );
+  if (wantOOS && !existingOOS && state.activeShopId) {
+    const newOOS = {
+      id: genId(), client_uuid: genUuid(),
+      master_item_id: m.id, shop_id: state.activeShopId,
+      flagged_at: new Date().toISOString(),
+    };
+    state.outOfStock.push(newOOS);
+    await dbPut('out_of_stock', newOOS);
+    const { id, ...payload } = newOOS;
+    await enqueue({ op: 'insert', table: 'out_of_stock', payload });
+  } else if (!wantOOS && existingOOS) {
+    state.outOfStock = state.outOfStock.filter(o => o.id !== existingOOS.id);
+    await dbDelete('out_of_stock', existingOOS.id);
+    await enqueue({ op: 'delete', table: 'out_of_stock', match: matchBy(existingOOS) });
+  }
 
   // Update name in current list rows + record price history if price changed
   for (const c of state.current.filter(c => c.master_item_id === editingItemId)) {
     if (c.name !== name) {
       c.name = name;
       await dbPut('current_list', c);
-      await enqueue({ op: 'update', table: 'current_list', payload: { name }, match: { id: c.id } });
+      await enqueue({ op: 'update', table: 'current_list', payload: { name }, match: matchBy(c) });
     }
   }
 
@@ -1944,7 +2741,7 @@ window.saveEdit = async function() {
   if (est_price != null && state.activeShopId) {
     const recent = state.priceHistory.find(p => p.master_item_id === editingItemId && p.shop_id === state.activeShopId);
     if (!recent || Math.abs(recent.price - est_price) > 0.01) {
-      const ph = { id: genId(), master_item_id: editingItemId, shop_id: state.activeShopId, price: est_price, recorded_at: new Date().toISOString() };
+      const ph = { id: genId(), client_uuid: genUuid(), master_item_id: editingItemId, shop_id: state.activeShopId, price: est_price, recorded_at: new Date().toISOString() };
       state.priceHistory.push(ph);
       await dbPut('price_history', ph);
       const { id: _i, ...phPayload } = ph;
@@ -1968,7 +2765,7 @@ window.deleteFromEdit = async function() {
 
 window.setActiveShop = async function(shopId) {
   state.activeShopId = Number(shopId);
-  await dbPut('app_state', { id: 'active_shop_id', key: 'active_shop_id', value: String(shopId) });
+  await dbPut('app_state', { key: 'active_shop_id', value: String(shopId) });
   await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(shopId) } });
   render();
 };
@@ -1989,7 +2786,7 @@ function renderShopList() {
 window.addShop = async function() {
   const name = document.getElementById('newShopName').value.trim();
   if (!name) return;
-  const newShop = { id: genId(), name, is_default: false, created_at: new Date().toISOString() };
+  const newShop = { id: genId(), client_uuid: genUuid(), name, is_default: false, created_at: new Date().toISOString() };
   state.shops.push(newShop);
   await dbPut('shops', newShop);
   const { id, ...payload } = newShop;
@@ -2001,13 +2798,15 @@ window.addShop = async function() {
 
 window.deleteShop = async function(id) {
   if (state.shops.length <= 1) { showToast('keep at least one shop'); return; }
+  const shop = state.shops.find(s => s.id === id);
+  if (!shop) return;
   if (!confirm('Delete this shop and its learned route?')) return;
   state.shops = state.shops.filter(s => s.id !== id);
   await dbDelete('shops', id);
-  await enqueue({ op: 'delete', table: 'shops', match: { id } });
+  await enqueue({ op: 'delete', table: 'shops', match: matchBy(shop) });
   if (state.activeShopId === id) {
     state.activeShopId = state.shops[0].id;
-    await dbPut('app_state', { id: 'active_shop_id', key: 'active_shop_id', value: String(state.activeShopId) });
+    await dbPut('app_state', { key: 'active_shop_id', value: String(state.activeShopId) });
     await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(state.activeShopId) } });
   }
   renderShopList();
@@ -2042,7 +2841,7 @@ window.addCategory = async function() {
   const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_');
   if (state.categories.find(c => c.key === key)) { showToast('already exists'); return; }
   const newCat = {
-    id: genId(), key, label, icon, is_builtin: false,
+    id: genId(), client_uuid: genUuid(), key, label, icon, is_builtin: false,
     sort_order: 200 + state.categories.length, created_at: new Date().toISOString()
   };
   state.categories.push(newCat);
@@ -2062,7 +2861,7 @@ window.deleteCategory = async function(id) {
   if (!confirm('Delete category "' + c.label + '"? Items will become uncategorised.')) return;
   state.categories = state.categories.filter(x => x.id !== id);
   await dbDelete('categories', id);
-  await enqueue({ op: 'delete', table: 'categories', match: { id } });
+  await enqueue({ op: 'delete', table: 'categories', match: matchBy(c) });
   populateCategorySelect();
   renderCategoriesList();
   render();
@@ -2106,10 +2905,16 @@ window.toggleVoice = function() {
 // SWIPE & LONG-PRESS
 // ════════════════════════════════════════════════════════════════════════════
 
+// M1 fix: centralised gesture state so only one gesture is active at a time.
+// 'swipe', 'drag', 'ptr', or null. Set by whichever gesture starts first,
+// other gestures check this and bail out.
+let activeGesture = null;
+
 let swipeData = null;
 const listWrap = document.getElementById('listWrap');
 
 listWrap.addEventListener('touchstart', e => {
+  if (activeGesture) return; // M1: another gesture in progress
   const item = e.target.closest('.item');
   if (!item || !item.dataset.swipeable) return;
   if (e.target.closest('.drag-handle')) return; // drag handle takes precedence
@@ -2125,6 +2930,7 @@ listWrap.addEventListener('touchmove', e => {
   if (Math.abs(dy) > Math.abs(dx)) { swipeData = null; return; }
   if (Math.abs(dx) > 10) {
     swipeData.moved = true;
+    activeGesture = 'swipe';
     swipeData.item.style.transform = `translateX(${dx}px)`;
     swipeData.item.style.transition = 'none';
   }
@@ -2146,6 +2952,7 @@ listWrap.addEventListener('touchend', e => {
   }
   const wasMove = swipeData.moved;
   swipeData = null;
+  if (activeGesture === 'swipe') activeGesture = null;
   if (wasMove) e.preventDefault();
 });
 
@@ -2160,14 +2967,25 @@ listWrap.addEventListener('pointerdown', e => {
   const kind = item.dataset.kind;
   pressTimer = setTimeout(() => {
     haptic(30);
+    // H10 fix: flag this item so subsequent click is suppressed
+    item.dataset.longpressFired = '1';
     if (kind === 'master') openEdit(id);
     else if (kind === 'current') {
       const ci = state.current.find(c => c.id === id);
       if (ci && ci.master_item_id) openEdit(ci.master_item_id);
     }
     pressTimer = null;
-  }, 550);
+  }, 700);  // H10 fix: was 550ms, raised to reduce accidental triggers
 });
+// H10 fix: capture-phase click listener to swallow click after long-press
+listWrap.addEventListener('click', e => {
+  const item = e.target.closest('.item');
+  if (item && item.dataset.longpressFired === '1') {
+    e.stopPropagation();
+    e.preventDefault();
+    delete item.dataset.longpressFired;
+  }
+}, true);
 listWrap.addEventListener('pointermove', e => {
   if (!pressStart || !pressTimer) return;
   if (Math.abs(e.clientX - pressStart.x) > 10 || Math.abs(e.clientY - pressStart.y) > 10) {
@@ -2183,6 +3001,7 @@ document.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pre
 
 let dragData = null;
 listWrap.addEventListener('touchstart', e => {
+  if (activeGesture && activeGesture !== 'drag') return; // M1
   const handle = e.target.closest('.drag-handle');
   if (!handle) return;
   e.preventDefault();
@@ -2190,6 +3009,7 @@ listWrap.addEventListener('touchstart', e => {
   if (!item) return;
   const t = e.touches[0];
   dragData = { item, startY: t.clientY, id: Number(item.dataset.id) };
+  activeGesture = 'drag';
   item.classList.add('dragging');
 }, { passive: false });
 
@@ -2222,19 +3042,32 @@ listWrap.addEventListener('touchend', async e => {
   if (overEl) {
     const targetId = Number(overEl.dataset.id);
     const draggedId = dragData.id;
-    // Reorder master items by setting sort_order
+    // Reorder master items: insert dragged before target, then renumber all
+    // master items in their visible order with clean integers to prevent drift
     const dragged = state.master.find(m => m.id === draggedId);
     const target = state.master.find(m => m.id === targetId);
     if (dragged && target) {
+      // Temporary drag using a fractional value
       const targetOrder = target.sort_order != null ? target.sort_order : (getOrderScore(target) || 0);
       dragged.sort_order = targetOrder - 0.5;
-      await dbPut('master_items', dragged);
-      await enqueue({ op: 'update', table: 'master_items', payload: { sort_order: dragged.sort_order }, match: { id: draggedId } });
+      // Now renumber all master items by their current sort to clean integers
+      const sortedMaster = sortByRoute([...state.master]);
+      let nextOrder = 10;
+      for (const item of sortedMaster) {
+        const newOrder = nextOrder;
+        nextOrder += 10;
+        if (item.sort_order !== newOrder) {
+          item.sort_order = newOrder;
+          await dbPut('master_items', item);
+          await enqueue({ op: 'update', table: 'master_items', payload: { sort_order: newOrder }, match: matchBy(item) });
+        }
+      }
       haptic(15);
       render();
     }
   }
   dragData = null;
+  if (activeGesture === 'drag') activeGesture = null;  // M1
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2247,7 +3080,7 @@ const PTR_THRESHOLD = 70;
 listWrap.addEventListener('touchstart', e => {
   // Only start PTR if list is scrolled to the top
   if (listWrap.scrollTop > 0) { ptrData = null; return; }
-  if (swipeData || dragData) return;
+  if (activeGesture) return;  // M1: don't start PTR during other gestures
   const t = e.touches[0];
   ptrData = { startY: t.clientY, currentY: t.clientY, active: false };
 }, { passive: true });
@@ -2266,6 +3099,7 @@ listWrap.addEventListener('touchmove', e => {
   ptrData.currentY = t.clientY;
   if (dy > 10) {
     ptrData.active = true;
+    activeGesture = 'ptr';   // M1
     const ind = document.getElementById('ptrIndicator');
     const progress = Math.min(dy, PTR_THRESHOLD * 1.5);
     ind.style.transform = `translateX(-50%) translateY(${progress - 50}px)`;
@@ -2275,7 +3109,11 @@ listWrap.addEventListener('touchmove', e => {
 }, { passive: true });
 
 listWrap.addEventListener('touchend', async () => {
-  if (!ptrData || !ptrData.active) { ptrData = null; return; }
+  if (!ptrData || !ptrData.active) {
+    ptrData = null;
+    if (activeGesture === 'ptr') activeGesture = null;  // M1
+    return;
+  }
   const dy = ptrData.currentY - ptrData.startY;
   const ind = document.getElementById('ptrIndicator');
   if (dy > PTR_THRESHOLD) {
@@ -2300,6 +3138,7 @@ listWrap.addEventListener('touchend', async () => {
     ind.style.transform = '';
   }
   ptrData = null;
+  if (activeGesture === 'ptr') activeGesture = null;  // M1
 });
 
 listWrap.addEventListener('touchcancel', () => {
@@ -2308,6 +3147,7 @@ listWrap.addEventListener('touchcancel', () => {
     document.getElementById('ptrIndicator').style.transform = '';
     ptrData = null;
   }
+  if (activeGesture === 'ptr') activeGesture = null;  // M1
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2317,6 +3157,8 @@ listWrap.addEventListener('touchcancel', () => {
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredInstallPrompt = e;
+  // H8 fix: don't show if user has explicitly dismissed previously
+  if (localStorage.getItem('trolley_install_dismissed') === '1') return;
   document.getElementById('installBanner').classList.add('show');
 });
 
@@ -2325,6 +3167,11 @@ window.installApp = async function() {
   deferredInstallPrompt.prompt();
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+};
+
+window.dismissInstall = function() {
+  localStorage.setItem('trolley_install_dismissed', '1');
   document.getElementById('installBanner').classList.remove('show');
 };
 
@@ -2387,43 +3234,70 @@ async function handleBarcode(code) {
     const data = await resp.json();
     if (data.status === 1 && data.product) {
       const p = data.product;
-      const name = p.product_name || p.generic_name || 'Unknown product';
+      const rawName = p.product_name || p.generic_name || 'Unknown product';
       const imageUrl = p.image_front_small_url || p.image_url || null;
-      // Add to current list
-      const master = await findOrCreateMaster(name);
-      if (imageUrl && !master.image_url) {
-        master.image_url = imageUrl;
-        await dbPut('master_items', master);
-        await enqueue({ op: 'update', table: 'master_items', payload: { image_url: imageUrl }, match: { id: master.id } });
-      }
-      const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
-      if (existing) {
-        existing.quantity += 1;
-        await dbPut('current_list', existing);
-        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
-      } else {
-        const newRow = {
-          id: genId(), master_item_id: master.id, name: master.name,
-          quantity: predictQty(master.id), need_more: false, collected_at: null,
-          added_at: new Date().toISOString(),
-        };
-        state.current.push(newRow);
-        await dbPut('current_list', newRow);
-        const { id, ...payload } = newRow;
-        await enqueue({ op: 'insert', table: 'current_list', payload });
-      }
-      render();
-      showToast('added "' + name + '"');
+      // H3 fix: let user shorten the auto-generated name before adding
+      showBarcodeConfirm(rawName, imageUrl, code);
     } else {
-      showToast('product not found — adding as "Item ' + code.slice(-4) + '"');
-      const master = await findOrCreateMaster('Item ' + code.slice(-4));
-      await addToTrip(master.id);
+      showBarcodeConfirm('Item ' + code.slice(-4), null, code);
     }
   } catch (e) {
     showToast('lookup failed — added blank');
     await findOrCreateMaster('Item ' + code);
   }
 }
+
+let _pendingBarcode = null;
+
+function showBarcodeConfirm(suggested, imageUrl, code) {
+  _pendingBarcode = { imageUrl, code };
+  document.getElementById('barcodeConfirmName').value = suggested.slice(0, 60);
+  const preview = document.getElementById('barcodeConfirmImage');
+  if (imageUrl) {
+    preview.src = imageUrl;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+  document.getElementById('barcodeConfirm').classList.add('show');
+}
+
+window.cancelBarcodeAdd = function() {
+  document.getElementById('barcodeConfirm').classList.remove('show');
+  _pendingBarcode = null;
+};
+
+window.confirmBarcodeAdd = async function() {
+  const name = document.getElementById('barcodeConfirmName').value.trim();
+  if (!name) { showToast('name required'); return; }
+  const imageUrl = _pendingBarcode?.imageUrl;
+  const master = await findOrCreateMaster(name);
+  if (imageUrl && !master.image_url) {
+    master.image_url = imageUrl;
+    await dbPut('master_items', master);
+    await enqueue({ op: 'update', table: 'master_items', payload: { image_url: imageUrl }, match: matchBy(master) });
+  }
+  const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
+  if (existing) {
+    existing.quantity += 1;
+    await dbPut('current_list', existing);
+    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
+  } else {
+    const newRow = {
+      id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
+      quantity: predictQty(master.id), need_more: false, collected_at: null,
+      added_at: new Date().toISOString(),
+    };
+    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
+    await dbPut('current_list', newRow);
+    const { id, ...payload } = newRow;
+    await enqueue({ op: 'insert', table: 'current_list', payload });
+  }
+  document.getElementById('barcodeConfirm').classList.remove('show');
+  _pendingBarcode = null;
+  render();
+  showToast(`added "${name}"`);
+};
 
 window.closeScanner = function() {
   if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
@@ -2437,45 +3311,73 @@ window.closeScanner = function() {
 
 window.openRecipeImport = function() {
   document.getElementById('recipeText').value = '';
+  document.getElementById('recipeStep1').style.display = 'block';
+  document.getElementById('recipeStep2').style.display = 'none';
   document.getElementById('recipeImport').classList.add('show');
 };
-window.closeRecipeImport = function() { document.getElementById('recipeImport').classList.remove('show'); };
+window.closeRecipeImport = function() {
+  document.getElementById('recipeImport').classList.remove('show');
+};
+window.backToRecipeEdit = function() {
+  document.getElementById('recipeStep1').style.display = 'block';
+  document.getElementById('recipeStep2').style.display = 'none';
+};
 
-function cleanIngredient(line) {
-  let s = line.trim().toLowerCase();
-  // Remove leading quantities like "2", "1/2", "1.5", "2-3"
-  s = s.replace(/^[\d\s\/\.\-]+/, '');
-  // Remove units
-  const tokens = s.split(/\s+/).filter(t => !RECIPE_STOPWORDS.includes(t));
-  // Take up to first 4 meaningful tokens
-  s = tokens.slice(0, 4).join(' ');
-  // Remove parens content
-  s = s.replace(/\(.*?\)/g, '').trim();
-  // Capitalise first letter
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-window.importRecipe = async function() {
+// M10 fix: preview step — parse, show what will be added, let user uncheck
+let recipePreviewItems = [];
+window.previewRecipe = function() {
   const text = document.getElementById('recipeText').value;
   if (!text.trim()) return;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let added = 0;
+  recipePreviewItems = [];
+  let skipped = 0;
   for (const line of lines) {
     const name = cleanIngredient(line);
-    if (!name || name.length < 2) continue;
-    const master = await findOrCreateMaster(name);
+    if (!name || name.length < 2) { skipped++; continue; }
+    // Check if already on trip
+    const onTrip = state.current.find(c => c.name.toLowerCase() === name.toLowerCase() && !c.collected_at);
+    recipePreviewItems.push({ name, original: line, onTrip: !!onTrip, checked: !onTrip });
+  }
+  if (recipePreviewItems.length === 0) {
+    showToast('no ingredients detected');
+    return;
+  }
+  document.getElementById('recipePreviewMsg').textContent =
+    `Found ${recipePreviewItems.length} ingredient${recipePreviewItems.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped)` : ''}. Tap to toggle:`;
+  document.getElementById('recipePreviewList').innerHTML = recipePreviewItems.map((it, i) => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;${it.onTrip ? 'opacity:0.6' : ''}">
+      <input type="checkbox" ${it.checked ? 'checked' : ''} onchange="recipePreviewItems[${i}].checked=this.checked" style="width:18px;height:18px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--text)">${escHtml(it.name)}${it.onTrip ? ' <span style="color:var(--accent-bright);font-size:10px">(already on trip)</span>' : ''}</div>
+        <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">from: ${escHtml(it.original)}</div>
+      </div>
+    </label>
+  `).join('');
+  document.getElementById('recipeStep1').style.display = 'none';
+  document.getElementById('recipeStep2').style.display = 'block';
+};
+
+window.importRecipe = async function() {
+  const selected = recipePreviewItems.filter(it => it.checked);
+  if (selected.length === 0) {
+    showToast('nothing selected');
+    return;
+  }
+  let added = 0;
+  for (const it of selected) {
+    const master = await findOrCreateMaster(it.name);
     const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
     if (existing) {
       existing.quantity += 1;
       await dbPut('current_list', existing);
-      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: { id: existing.id } });
+      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
     } else {
       const newRow = {
-        id: genId(), master_item_id: master.id, name: master.name,
+        id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
         quantity: 1, need_more: false, collected_at: null,
         added_at: new Date().toISOString(),
       };
-      state.current.push(newRow);
+      state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
       await dbPut('current_list', newRow);
       const { id, ...payload } = newRow;
       await enqueue({ op: 'insert', table: 'current_list', payload });
@@ -2484,7 +3386,7 @@ window.importRecipe = async function() {
   }
   closeRecipeImport();
   render();
-  showToast('added ' + added + ' ingredient' + (added > 1 ? 's' : ''));
+  showToast(`added ${added} ingredient${added !== 1 ? 's' : ''}`);
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2507,15 +3409,27 @@ window.handleReceiptUpload = async function(e) {
     const { data: { text } } = await worker.recognize(file);
     await worker.terminate();
 
-    // Find total: look for "total" lines with a number
+    // H5 fix: find "total" lines but exclude subtotal/sub-total/VAT total
     const lines = text.split('\n');
-    let total = null;
+    let totalCandidates = [];
     for (const line of lines) {
-      if (/total/i.test(line) && !/sub/i.test(line)) {
-        const m = line.match(/(\d+[\.,]\d{2})/);
-        if (m) { total = parseFloat(m[1].replace(',', '.')); break; }
+      const lower = line.toLowerCase();
+      if (!/total/.test(lower)) continue;
+      // Exclude bad matches
+      if (/sub[\s-]?total/.test(lower)) continue;
+      if (/vat[\s-]?total/.test(lower)) continue;
+      if (/total[\s-]?vat/.test(lower)) continue;
+      if (/total[\s-]?savings/.test(lower)) continue;
+      const m = line.match(/(\d+[\.,]\d{2})/);
+      if (m) {
+        const val = parseFloat(m[1].replace(',', '.'));
+        // Prefer "TOTAL" in caps (typical for grand total) or shortest line
+        const score = (line === line.toUpperCase() ? 100 : 0) - line.length;
+        totalCandidates.push({ val, score, line });
       }
     }
+    totalCandidates.sort((a, b) => b.score - a.score);
+    let total = totalCandidates.length > 0 ? totalCandidates[0].val : null;
     // Fallback: largest currency-like number
     if (!total) {
       const nums = [...text.matchAll(/(\d+[\.,]\d{2})/g)].map(m => parseFloat(m[1].replace(',', '.')));
@@ -2650,7 +3564,7 @@ window.restartTour = function() {
 // RENDER
 // ════════════════════════════════════════════════════════════════════════════
 
-function render() {
+function _renderNow() {
   // Shop selector
   const sel = document.getElementById('shopSelect');
   const desired = state.shops.map(s => `<option value="${s.id}"${s.id === state.activeShopId ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('');
@@ -2665,21 +3579,28 @@ function render() {
     const m = state.master.find(x => x.id === i.master_item_id);
     return s + (m && m.est_price ? m.est_price * i.quantity : 0);
   }, 0);
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statCollected').textContent = collected;
-  document.getElementById('statNeedMore').textContent = needMore;
+  // M6 fix: combined progress, qty only when > items, flag only when > 0
+  document.getElementById('statProgress').textContent = `${collected} / ${total}`;
   document.getElementById('statQty').textContent = totalQty;
+  document.getElementById('statNeedMore').textContent = needMore;
   document.getElementById('statCost').textContent = fmtMoney(estCost);
+  // Only show qty stat if it differs from item count (i.e., some items have qty > 1)
+  document.getElementById('statQtyWrap').style.display = (totalQty > total) ? 'flex' : 'none';
+  // Only show flag stat if any items are flagged
+  document.getElementById('statFlagWrap').style.display = (needMore > 0) ? 'flex' : 'none';
+  // Only show cost if any items have prices
+  document.getElementById('statCostWrap').style.display = (estCost > 0) ? 'flex' : 'none';
   const pct = total > 0 ? Math.round((collected / total) * 100) : 0;
   document.getElementById('progressFill').style.width = pct + '%';
 
-  // Glow finish button when all done
+  // H13 fix: only glow finish when there are items AND all are collected
   const finishBtn = document.getElementById('finishTripBtn');
-  if (collected === total && total > 0) finishBtn.classList.add('glow');
+  if (total > 0 && collected === total) finishBtn.classList.add('glow');
   else finishBtn.classList.remove('glow');
 
   if (currentView === 'trip') renderTrip();
   else if (currentView === 'master') renderMaster();
+  else if (currentView === 'meals') renderMeals();
   else if (currentView === 'history') renderHistory();
 }
 
@@ -2705,10 +3626,13 @@ function renderTrip() {
           </div>
           <div class="suggest-chips">
             ${suggestions.map(s => `
-              <button class="suggest-chip" onclick="addToTrip(${s.id})">
-                ${escHtml(s.name)}
-                <span class="due">${s.daysSinceLast}d / ~${s.avgGap}d</span>
-              </button>
+              <span style="display:inline-flex;align-items:center">
+                <button class="suggest-chip" onclick="addToTrip(${s.id})" style="border-top-right-radius:0;border-bottom-right-radius:0;border-right:none">
+                  ${escHtml(s.name)}
+                  <span class="due">${s.daysSinceLast}d / ~${s.avgGap}d</span>
+                </button>
+                <button class="suggest-chip" onclick="snoozeSuggestion('${escHtml(s.name).replace(/'/g, '&#39;')}')" style="padding:6px 8px;border-top-left-radius:0;border-bottom-left-radius:0;color:var(--muted)" title="snooze 14 days">✕</button>
+              </span>
             `).join('')}
           </div>
         </div>
@@ -2717,9 +3641,15 @@ function renderTrip() {
   }
 
   if (visible.length === 0) {
-    html += `<div class="empty"><div class="empty-icon">🛒</div>
-      <div class="empty-title">${currentTab === 'all' ? 'trip is empty' : 'nothing here'}</div>
-      <div class="empty-sub">${currentTab === 'all' ? 'add items or tap ✨ suggest' : ''}</div></div>`;
+    if (search) {
+      html += `<div class="empty"><div class="empty-icon">🔍</div>
+        <div class="empty-title">no results for "${escHtml(search)}"</div>
+        <div class="empty-sub">data may still be syncing — pull down to refresh</div></div>`;
+    } else {
+      html += `<div class="empty"><div class="empty-icon">🛒</div>
+        <div class="empty-title">${currentTab === 'all' ? 'trip is empty' : 'nothing here'}</div>
+        <div class="empty-sub">${currentTab === 'all' ? 'add items or tap ✨ suggest' : ''}</div></div>`;
+    }
     wrap.innerHTML = html;
     return;
   }
@@ -2769,7 +3699,7 @@ function tripItemHTML(item) {
     : (cat ? `<div class="item-thumb">${cat.icon}</div>` : '');
 
   return `
-    <div class="item${item.collected_at ? ' collected' : ''}${isLowFlagged ? ' low-flagged' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
+    <div class="item${item.collected_at ? ' collected' : ''}${isLowFlagged ? ' low-flagged' : ''}${recentlyAdded.has(item.client_uuid) ? ' flash-new' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
       <div class="check-box"><span class="check-icon">✓</span></div>
       ${thumb}
       <div class="item-body">
@@ -2797,9 +3727,9 @@ function renderMaster() {
   if (search) visible = visible.filter(m => m.name.toLowerCase().includes(search));
 
   if (visible.length === 0) {
-    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>
-      <div class="empty-title">${search ? 'no matches' : 'master list empty'}</div>
-      <div class="empty-sub">${search ? '' : 'add items below'}</div></div>`;
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">${search ? '🔍' : '📋'}</div>
+      <div class="empty-title">${search ? `no results for "${escHtml(search)}"` : 'master list empty'}</div>
+      <div class="empty-sub">${search ? 'pull down to refresh if you expected results' : 'add items below'}</div></div>`;
     return;
   }
 
@@ -2842,7 +3772,9 @@ function masterItemHTML(m, allowDrag) {
   const qty = onList ? onList.quantity : 0;
   const learned = hasLearnedOrder(m.name);
   const cat = categoryByKey(m.category);
+  const isOOS = state.outOfStock.some(o => o.master_item_id === m.id && o.shop_id === state.activeShopId);
   const metaParts = [];
+  if (isOOS) metaParts.push(`<span style="color:var(--danger);font-weight:600">🚫 out of stock here</span>`);
   if (m.times_bought > 0) metaParts.push(`bought ${m.times_bought}×`);
   if (learned) metaParts.push(`learned`);
   if (m.est_price) metaParts.push(`<span class="price-tag">${fmtMoney(m.est_price)}</span>`);
@@ -2854,7 +3786,7 @@ function masterItemHTML(m, allowDrag) {
     : `<div class="item-thumb">${cat.icon}</div>`;
 
   return `
-    <div class="item" data-id="${m.id}" data-kind="master" data-swipeable="1">
+    <div class="item" data-id="${m.id}" data-kind="master" data-swipeable="1" style="${isOOS ? 'opacity:0.7' : ''}">
       ${allowDrag ? `<span class="drag-handle">≡</span>` : ''}
       ${thumb}
       <div class="item-body">
@@ -2869,9 +3801,40 @@ function masterItemHTML(m, allowDrag) {
             <span class="qty-val">${qty}</span>
             <button class="qty-btn" onclick="adjustMasterQty(${m.id}, 1)">+</button>
           </div>
-        ` : `<button class="need-btn" onclick="addToTrip(${m.id})">+ need</button>`}
+        ` : `<button class="need-btn" onclick="addToTrip(${m.id})">add →</button>`}
       </div>
     </div>`;
+}
+
+// M12: Spend sparkline — SVG line chart of trip costs over time
+function renderSpendSparkline(trips) {
+  const withCost = trips.filter(t => Number(t.total_cost) > 0)
+    .sort((a, b) => new Date(a.completed_at) - new Date(b.completed_at));
+  if (withCost.length < 2) return ''; // need 2+ for a line
+
+  const w = 200, h = 50, pad = 4;
+  const max = Math.max(...withCost.map(t => Number(t.total_cost)));
+  const min = Math.min(...withCost.map(t => Number(t.total_cost)));
+  const range = max - min || 1;
+
+  const points = withCost.map((t, i) => {
+    const x = pad + (i / (withCost.length - 1)) * (w - 2 * pad);
+    const y = pad + (1 - (Number(t.total_cost) - min) / range) * (h - 2 * pad);
+    return [x, y];
+  });
+
+  const path = 'M ' + points.map(p => p.join(',')).join(' L ');
+  const lastPoint = points[points.length - 1];
+
+  return `
+    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:50px;margin-top:8px;display:block" preserveAspectRatio="none">
+      <path d="${path}" fill="none" stroke="var(--accent-bright)" stroke-width="1.5" />
+      <circle cx="${lastPoint[0]}" cy="${lastPoint[1]}" r="2.5" fill="var(--accent-bright)" />
+    </svg>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:2px">
+      <span>${fmtMoney(min)}</span><span>${withCost.length} trips</span><span>${fmtMoney(max)}</span>
+    </div>
+  `;
 }
 
 function renderHistory() {
@@ -2913,6 +3876,7 @@ function renderHistory() {
         <div class="stats-card-label">Total spent</div>
         <div class="stats-card-val" style="font-size:20px">${fmtMoney(totalSpent)}</div>
         <div class="stats-card-sub">avg ${fmtMoney(totalSpent / Math.max(1, trips.filter(t => t.total_cost).length))} per recorded trip</div>
+        ${renderSpendSparkline(trips)}
       </div>` : ''}
     ${topItem ? `
       <div class="stats-card" style="margin-bottom:12px">
@@ -2945,11 +3909,11 @@ function renderHistory() {
       return `
         <div class="trip-card" id="trip-${t.id}">
           <div class="trip-header" onclick="toggleTripExpand(${t.id})">
-            <div>
+            <div style="flex:1;min-width:0">
               <div class="trip-date">${dateStr} <span style="color:var(--text-dim);font-weight:400;font-size:12px">${timeStr}</span></div>
               <div class="trip-summary">${t.item_count} item${t.item_count !== 1 ? 's' : ''} · ${t.total_qty} qty${shopLabel}${costLabel}</div>
             </div>
-            <button class="trip-delete" onclick="event.stopPropagation();deleteTrip(${t.id})">delete</button>
+            <span style="color:var(--muted);font-size:14px;flex-shrink:0" class="trip-chevron">▾</span>
           </div>
           <div class="trip-items">
             ${items.map(i => `
@@ -2958,6 +3922,9 @@ function renderHistory() {
                 <span class="trip-item-qty">×${i.quantity}${i.est_price ? ` · ${fmtMoney(i.est_price * i.quantity)}` : ''}</span>
               </div>
             `).join('')}
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+              <button class="trip-delete" onclick="deleteTrip(${t.id})">delete trip</button>
+            </div>
           </div>
         </div>`;
     }).join('');
@@ -2966,8 +3933,327 @@ function renderHistory() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// TOAST
+// MEALS
 // ════════════════════════════════════════════════════════════════════════════
+
+// In-memory: which meals are expanded right now
+const expandedMeals = new Set();
+
+function renderMeals() {
+  const wrap = document.getElementById('listWrap');
+  const search = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  let visible = state.meals;
+  if (search) visible = visible.filter(m => m.name.toLowerCase().includes(search));
+
+  if (visible.length === 0) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">${search ? '🔍' : '🍽️'}</div>
+      <div class="empty-title">${search ? `no meals matching "${escHtml(search)}"` : 'no meals yet'}</div>
+      <div class="empty-sub">${search ? '' : 'type a meal name below to create one'}</div></div>`;
+    return;
+  }
+
+  visible.sort((a, b) => a.name.localeCompare(b.name));
+
+  let html = '';
+  for (const meal of visible) {
+    const ingredients = state.mealIngredients
+      .filter(i => i.meal_id === meal.id)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const isExpanded = expandedMeals.has(meal.id);
+    // Thumbnails: first 3 categories of ingredients
+    const cats = [];
+    const seenCats = new Set();
+    for (const ing of ingredients) {
+      const m = state.master.find(x => x.id === ing.master_item_id);
+      const cat = m ? state.categories.find(c => c.key === m.category) : null;
+      if (cat && !seenCats.has(cat.key)) {
+        cats.push(cat.icon);
+        seenCats.add(cat.key);
+        if (cats.length >= 3) break;
+      }
+    }
+
+    html += `
+      <div class="meal-card${isExpanded ? ' expanded' : ''}" id="meal-${meal.id}">
+        <div class="meal-header" onclick="toggleMealExpand(${meal.id})">
+          <div style="flex:1;min-width:0">
+            <div class="meal-name">${escHtml(meal.name)}</div>
+            <div class="meal-summary">
+              ${ingredients.length} ingredient${ingredients.length !== 1 ? 's' : ''}
+              ${cats.length > 0 ? ' · ' + cats.join(' ') : ''}
+            </div>
+          </div>
+          <button class="icon-btn" onclick="event.stopPropagation();openMealEdit(${meal.id})" title="edit">✎</button>
+          <span style="color:var(--muted);font-size:14px;flex-shrink:0;margin-left:6px" class="meal-chevron">▾</span>
+        </div>
+        <div class="meal-body">
+          ${ingredients.length === 0 ? `
+            <div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">no ingredients yet — tap ✎ to add</div>
+          ` : ingredients.map(ing => {
+            const master = state.master.find(m => m.id === ing.master_item_id);
+            const cat = master ? state.categories.find(c => c.key === master.category) : null;
+            const thumb = master && master.image_url
+              ? `<div class="item-thumb"><img src="${escHtml(master.image_url)}" onerror="this.parentElement.innerHTML='${cat ? cat.icon : '📦'}'"></div>`
+              : `<div class="item-thumb">${cat ? cat.icon : '📦'}</div>`;
+            const onTrip = state.current.find(c => c.master_item_id === ing.master_item_id && !c.collected_at);
+            return `
+              <div class="meal-ingredient">
+                ${thumb}
+                <div class="meal-ingredient-name">${escHtml(ing.name)}</div>
+                <button class="need-btn${onTrip ? ' on-trip' : ''}"
+                  onclick="addMealIngredientToTrip(${ing.id})"
+                  ${onTrip ? 'title="already on trip — tap to add another"' : ''}>
+                  ${onTrip ? `on trip ×${onTrip.quantity}` : 'add →'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+          ${ingredients.length > 1 ? `
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+              <button class="action-btn" onclick="addAllMealIngredients(${meal.id})">add all to trip</button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+  wrap.innerHTML = html;
+}
+
+window.toggleMealExpand = function(id) {
+  if (expandedMeals.has(id)) expandedMeals.delete(id);
+  else expandedMeals.add(id);
+  render();
+  haptic(5);
+};
+
+// Add a single ingredient to trip with qty 1
+window.addMealIngredientToTrip = async function(ingId) {
+  const ing = state.mealIngredients.find(i => i.id === ingId);
+  if (!ing) return;
+  haptic(8);
+  // Ensure master exists (it should but be safe)
+  let master = state.master.find(m => m.id === ing.master_item_id);
+  if (!master) {
+    master = await findOrCreateMaster(ing.name);
+    // Patch the meal_ingredient row with the new master_item_id
+    ing.master_item_id = master.id;
+    await dbPut('meal_ingredients', ing);
+    await enqueue({ op: 'update', table: 'meal_ingredients', payload: { master_item_id: master.id }, match: matchBy(ing) });
+  }
+  const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
+  if (existing) {
+    existing.quantity += 1;
+    await dbPut('current_list', existing);
+    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
+  } else {
+    const newRow = {
+      id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
+      quantity: 1, need_more: false, collected_at: null,
+      added_at: new Date().toISOString(),
+    };
+    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
+    await dbPut('current_list', newRow);
+    const { id, ...payload } = newRow;
+    await enqueue({ op: 'insert', table: 'current_list', payload });
+  }
+  render();
+  showToast(`✓ ${ing.name}`);
+};
+
+// Bulk add all ingredients in a meal to trip
+window.addAllMealIngredients = async function(mealId) {
+  const ings = state.mealIngredients.filter(i => i.meal_id === mealId);
+  if (!ings.length) return;
+  haptic(15);
+  let added = 0;
+  for (const ing of ings) {
+    let master = state.master.find(m => m.id === ing.master_item_id);
+    if (!master) master = await findOrCreateMaster(ing.name);
+    const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
+    if (existing) {
+      existing.quantity += 1;
+      await dbPut('current_list', existing);
+      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
+    } else {
+      const newRow = {
+        id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
+        quantity: 1, need_more: false, collected_at: null,
+        added_at: new Date().toISOString(),
+      };
+      state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
+      await dbPut('current_list', newRow);
+      const { id, ...payload } = newRow;
+      await enqueue({ op: 'insert', table: 'current_list', payload });
+    }
+    added++;
+  }
+  render();
+  showToast(`added ${added} from meal`);
+};
+
+// Create a new meal from the add-input
+window.createMeal = async function(name) {
+  name = name.trim();
+  if (!name) return null;
+  if (state.meals.find(m => m.name.toLowerCase() === name.toLowerCase())) {
+    showToast('meal already exists');
+    return null;
+  }
+  const newMeal = {
+    id: genId(), client_uuid: genUuid(),
+    name, notes: null, created_at: new Date().toISOString(),
+  };
+  state.meals.push(newMeal);
+  await dbPut('meals', newMeal);
+  const { id, ...payload } = newMeal;
+  await enqueue({ op: 'insert', table: 'meals', payload });
+  // Auto-open edit modal so user can immediately add ingredients
+  openMealEdit(newMeal.id);
+  return newMeal;
+};
+
+// ----- MEAL EDIT MODAL -----
+let editingMealId = null;
+
+window.openMealEdit = function(mealId) {
+  const meal = state.meals.find(m => m.id === mealId);
+  if (!meal) return;
+  editingMealId = mealId;
+  document.getElementById('mealEditTitle').textContent = `Edit "${meal.name}"`;
+  document.getElementById('mealEditName').value = meal.name;
+  document.getElementById('mealIngInput').value = '';
+  renderMealEditIngredients();
+  populateMealMasterPicker();
+  document.getElementById('mealEditModal').classList.add('show');
+};
+
+window.closeMealEdit = function() {
+  editingMealId = null;
+  document.getElementById('mealEditModal').classList.remove('show');
+};
+
+function renderMealEditIngredients() {
+  const wrap = document.getElementById('mealEditIngredients');
+  const ings = state.mealIngredients
+    .filter(i => i.meal_id === editingMealId)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  if (!ings.length) {
+    wrap.innerHTML = `<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">no ingredients yet</div>`;
+    return;
+  }
+  wrap.innerHTML = ings.map(ing => {
+    const master = state.master.find(m => m.id === ing.master_item_id);
+    const cat = master ? state.categories.find(c => c.key === master.category) : null;
+    return `
+      <div class="meal-edit-ing-row">
+        <span>${cat ? cat.icon : '📦'}</span>
+        <span style="flex:1">${escHtml(ing.name)}</span>
+        <button class="modal-btn" style="padding:4px 10px;font-size:11px" onclick="removeMealIngredient(${ing.id})">remove</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function populateMealMasterPicker() {
+  const sel = document.getElementById('mealMasterPicker');
+  if (!sel) return;
+  const ingIds = new Set(state.mealIngredients
+    .filter(i => i.meal_id === editingMealId)
+    .map(i => i.master_item_id));
+  const candidates = state.master
+    .filter(m => !ingIds.has(m.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  sel.innerHTML = '<option value="">-- pick from master --</option>' +
+    candidates.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+}
+
+window.addMealIngredientFromMaster = async function() {
+  const sel = document.getElementById('mealMasterPicker');
+  const masterId = Number(sel.value);
+  if (!masterId) return;
+  const master = state.master.find(m => m.id === masterId);
+  if (!master) return;
+  await _addIngredientToMeal(editingMealId, master);
+  sel.value = '';
+};
+
+window.addMealIngredientFromInput = async function() {
+  const input = document.getElementById('mealIngInput');
+  const name = input.value.trim();
+  if (!name) return;
+  input.value = '';
+  // Find or create master
+  const master = await findOrCreateMaster(name);
+  await _addIngredientToMeal(editingMealId, master);
+};
+
+async function _addIngredientToMeal(mealId, master) {
+  // Don't add duplicate
+  const dupe = state.mealIngredients.find(i => i.meal_id === mealId && i.master_item_id === master.id);
+  if (dupe) { showToast('already in meal'); return; }
+  const nextSortOrder = (state.mealIngredients
+    .filter(i => i.meal_id === mealId)
+    .reduce((max, i) => Math.max(max, i.sort_order || 0), 0)) + 10;
+  const newIng = {
+    id: genId(), client_uuid: genUuid(),
+    meal_id: mealId, master_item_id: master.id,
+    name: master.name, sort_order: nextSortOrder,
+  };
+  state.mealIngredients.push(newIng);
+  await dbPut('meal_ingredients', newIng);
+  const { id, ...payload } = newIng;
+  await enqueue({ op: 'insert', table: 'meal_ingredients', payload });
+  renderMealEditIngredients();
+  populateMealMasterPicker();
+  haptic(5);
+}
+
+window.removeMealIngredient = async function(ingId) {
+  const ing = state.mealIngredients.find(i => i.id === ingId);
+  if (!ing) return;
+  state.mealIngredients = state.mealIngredients.filter(i => i.id !== ingId);
+  await dbDelete('meal_ingredients', ingId);
+  await enqueue({ op: 'delete', table: 'meal_ingredients', match: matchBy(ing) });
+  renderMealEditIngredients();
+  populateMealMasterPicker();
+  haptic(8);
+};
+
+window.saveMealName = async function() {
+  const meal = state.meals.find(m => m.id === editingMealId);
+  if (!meal) return;
+  const name = document.getElementById('mealEditName').value.trim();
+  if (!name) { showToast('name required'); return; }
+  if (name === meal.name) { closeMealEdit(); render(); return; }
+  meal.name = name;
+  await dbPut('meals', meal);
+  await enqueue({ op: 'update', table: 'meals', payload: { name }, match: matchBy(meal) });
+  closeMealEdit();
+  render();
+  showToast('saved');
+};
+
+window.deleteMeal = async function() {
+  const meal = state.meals.find(m => m.id === editingMealId);
+  if (!meal) return;
+  if (!confirm(`Delete meal "${meal.name}"?`)) return;
+  // Server cascade will delete ingredients, but clean local state too
+  const ings = state.mealIngredients.filter(i => i.meal_id === meal.id);
+  state.meals = state.meals.filter(m => m.id !== meal.id);
+  state.mealIngredients = state.mealIngredients.filter(i => i.meal_id !== meal.id);
+  await dbDelete('meals', meal.id);
+  for (const ing of ings) {
+    try { await dbDelete('meal_ingredients', ing.id); } catch (e) {}
+  }
+  await enqueue({ op: 'delete', table: 'meals', match: matchBy(meal) });
+  closeMealEdit();
+  render();
+  haptic(15);
+  showToast(`deleted "${meal.name}"`);
+};
+
+
 
 function showToast(msg, withUndo = false) {
   const t = document.getElementById('toast');

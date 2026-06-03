@@ -1,5 +1,5 @@
-// Bump this string any time you want all clients to force-refetch
-const CACHE_NAME = 'trolley-v5-2026-05-27-d';
+// Bump this version any time index.html changes meaningfully
+const CACHE_NAME = 'trolley-v5.6-2026-05-30';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -15,24 +15,45 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Race network against a timeout; fall back to cache if network is slow
+function raceNetworkCache(request, timeoutMs) {
+  return new Promise(resolve => {
+    let settled = false;
+    const timer = setTimeout(async () => {
+      if (settled) return;
+      const cached = await caches.match(request);
+      if (cached) { settled = true; resolve(cached); }
+    }, timeoutMs);
+
+    fetch(request).then(resp => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const copy = resp.clone();
+      caches.open(CACHE_NAME).then(c => c.put(request, copy)).catch(() => {});
+      resolve(resp);
+    }).catch(async () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const cached = await caches.match(request);
+      resolve(cached || new Response('Offline', { status: 503 }));
+    });
+  });
+}
+
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
   if (e.request.method !== 'GET') return;
 
-  // Network-first for index.html so updates show fast
+  // Bug 7 fix: index.html uses race with 3s timeout, not pure network-first
   if (url.pathname === '/' || url.pathname.endsWith('/index.html')) {
-    e.respondWith(
-      fetch(e.request).then(resp => {
-        const copy = resp.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(() => {});
-        return resp;
-      }).catch(() => caches.match(e.request))
-    );
+    e.respondWith(raceNetworkCache(e.request, 3000));
     return;
   }
 
-  // Cache-first for static assets
+  // Static assets: cache-first
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
