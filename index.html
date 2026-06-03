@@ -601,6 +601,14 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 }
 .offline-banner.show { display: block; }
 
+/* DIAG: on-screen error banner — surfaces JS errors for mobile debugging */
+.error-banner {
+  display: none; background: #4a1f1f; color: #ffb3b3;
+  padding: 8px 14px; font-size: 11px; font-family: monospace;
+  border-bottom: 1px solid #6b2929;
+  word-break: break-word; cursor: pointer;
+}
+
 /* Search hint shows total items being searched */
 .search-hint {
   font-size: 9px; color: var(--muted); padding: 4px 14px 0; opacity: 0.6;
@@ -691,6 +699,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 
 <div id="app" style="display:none">
   <div class="offline-banner" id="offlineBanner">⚠ offline — changes will sync when reconnected</div>
+  <div class="error-banner" id="errorBanner" onclick="this.style.display='none'" title="tap to dismiss"></div>
   <header>
     <div class="header-top">
       <div class="logo">trolley</div>
@@ -769,7 +778,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.6</div>
+<div class="version-footer">v5.7</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -1117,8 +1126,43 @@ function scheduleRender() {
   }, 30);
 }
 
+// Global error trap — surfaces errors to a small banner so we can debug
+// without devtools on mobile.
+window.addEventListener('error', e => {
+  try {
+    const banner = document.getElementById('errorBanner');
+    if (banner) {
+      banner.textContent = '⚠ ' + (e.message || 'unknown error') + ' @ ' + (e.filename || '').split('/').pop() + ':' + e.lineno;
+      banner.style.display = 'block';
+    }
+  } catch (_) {}
+});
+window.addEventListener('unhandledrejection', e => {
+  try {
+    const banner = document.getElementById('errorBanner');
+    if (banner) {
+      const msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+      banner.textContent = '⚠ promise: ' + msg;
+      banner.style.display = 'block';
+    }
+  } catch (_) {}
+});
+
 // Public render: immediate for user-triggered actions
-function render() { _renderNow(); }
+function render() {
+  try {
+    _renderNow();
+  } catch (err) {
+    try {
+      const banner = document.getElementById('errorBanner');
+      if (banner) {
+        banner.textContent = '⚠ render: ' + (err.message || err);
+        banner.style.display = 'block';
+      }
+    } catch (_) {}
+    throw err;
+  }
+}
 
 function haptic(ms = 10) {
   if (navigator.vibrate) try { navigator.vibrate(ms); } catch(e) {}
