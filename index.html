@@ -778,7 +778,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.14</div>
+<div class="version-footer">v5.15</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -926,7 +926,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
     <h2>Settings</h2>
     <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.14</span></p>
+    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.15</span></p>
     <div class="modal-btn-row" style="flex-direction:column;gap:8px">
       <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
@@ -2014,23 +2014,23 @@ window.forceSync = async function() {
 window.inspectQueue = async function() {
   try {
     const queue = await dbAll('sync_queue');
-    const summary = queue.map(op => {
+    const rows = queue.map(op => {
       const fk = [];
       if (op.payload?.meal_id != null) fk.push(`meal_id=${op.payload.meal_id}${op.meal_uuid ? ' (uuid:' + op.meal_uuid.slice(0,8) + '...)' : ' NO_UUID'}`);
       if (op.payload?.master_item_id != null) fk.push(`master_id=${op.payload.master_item_id}${op.master_item_uuid ? ' (uuid:' + op.master_item_uuid.slice(0,8) + '...)' : ' NO_UUID'}`);
       if (op.payload?.shop_id != null) fk.push(`shop_id=${op.payload.shop_id}${op.shop_uuid ? ' ✓' : ' NO_UUID'}`);
       const name = op.payload?.name || '';
       const fail = op.fail_count ? ` fail#${op.fail_count}` : '';
-      return `#${op.id} ${op.op} ${op.table}${name ? ' "' + name + '"' : ''} ${fk.join(', ')}${fail}`;
-    }).join('\n');
+      return {
+        id: op.id,
+        text: `#${op.id} ${op.op} ${op.table}${name ? ' "' + name + '"' : ''} ${fk.join(', ')}${fail}`,
+      };
+    });
 
     const mealsList = state.meals.map(m =>
       `id=${m.id} uuid=${(m.client_uuid || '').slice(0,8)}... "${m.name}"`
     ).join('\n');
 
-    const text = `QUEUE (${queue.length} items):\n${summary || '(empty)'}\n\n\nMEALS IN STATE (${state.meals.length}):\n${mealsList || '(none)'}\n\n\nidMap.meals:\n${JSON.stringify(idMap.meals, null, 2)}`;
-
-    // Display in a simple modal
     let modal = document.getElementById('queueInspectModal');
     if (!modal) {
       modal = document.createElement('div');
@@ -2039,7 +2039,8 @@ window.inspectQueue = async function() {
       modal.innerHTML = `
         <div class="modal-card" style="max-width:90vw">
           <h2>Queue inspector</h2>
-          <pre id="queueInspectText" style="font-size:10px;background:var(--bg);padding:10px;border-radius:8px;overflow:auto;max-height:60vh;white-space:pre-wrap;word-break:break-all"></pre>
+          <div id="queueInspectRows" style="font-size:10px;max-height:50vh;overflow:auto;margin-bottom:8px"></div>
+          <pre id="queueInspectText" style="font-size:10px;background:var(--bg);padding:10px;border-radius:8px;overflow:auto;max-height:30vh;white-space:pre-wrap;word-break:break-all"></pre>
           <div class="modal-btn-row">
             <button class="modal-btn" onclick="copyQueueInspect()">copy</button>
             <button class="modal-btn primary" onclick="document.getElementById('queueInspectModal').classList.remove('show')">close</button>
@@ -2048,10 +2049,37 @@ window.inspectQueue = async function() {
       `;
       document.body.appendChild(modal);
     }
-    document.getElementById('queueInspectText').textContent = text;
+
+    // Per-op rows with a drop button
+    const rowsHtml = rows.length === 0
+      ? '<div style="color:var(--muted);padding:10px;text-align:center">queue is empty</div>'
+      : rows.map(r => `
+          <div style="display:flex;align-items:start;gap:6px;padding:8px;background:var(--surface2);border-radius:6px;margin-bottom:4px">
+            <div style="flex:1;font-family:monospace;font-size:10px;word-break:break-all">${escHtml(r.text)}</div>
+            <button class="modal-btn danger" style="padding:4px 8px;font-size:10px;flex-shrink:0" onclick="dropQueueOp(${r.id})">drop</button>
+          </div>
+        `).join('');
+    document.getElementById('queueInspectRows').innerHTML = rowsHtml;
+
+    const meta = `MEALS IN STATE (${state.meals.length}):\n${mealsList || '(none)'}\n\nidMap.meals:\n${JSON.stringify(idMap.meals, null, 2)}`;
+    document.getElementById('queueInspectText').textContent = meta;
+
     modal.classList.add('show');
   } catch (e) {
     showError('inspectQueue', e);
+  }
+};
+
+window.dropQueueOp = async function(opId) {
+  if (!confirm(`Drop queue op #${opId}? The data won't be sent to Supabase.`)) return;
+  try {
+    await dbDelete('sync_queue', opId);
+    updateQueueBadge();
+    showToast(`dropped #${opId}`);
+    // Re-open inspector with updated list
+    inspectQueue();
+  } catch (e) {
+    showError('dropQueueOp', e);
   }
 };
 
