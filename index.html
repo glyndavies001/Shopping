@@ -778,7 +778,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.10</div>
+<div class="version-footer">v5.11</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -1262,6 +1262,23 @@ async function enqueue(op) {
       if (src && src.id != null) op.local_id = src.id;
     }
   }
+  // Capture client_uuids of foreign-keyed rows so flush can resolve them via
+  // state.* lookup even if idMap was lost (e.g. after refresh). More robust
+  // than relying solely on idMap which is in-memory until saveIdMap commits.
+  if (op.payload) {
+    if (op.payload.meal_id != null) {
+      const meal = state.meals.find(m => m.id === op.payload.meal_id);
+      if (meal && meal.client_uuid) op.meal_uuid = meal.client_uuid;
+    }
+    if (op.payload.master_item_id != null) {
+      const m = state.master.find(x => x.id === op.payload.master_item_id);
+      if (m && m.client_uuid) op.master_item_uuid = m.client_uuid;
+    }
+    if (op.payload.shop_id != null) {
+      const s = state.shops.find(x => x.id === op.payload.shop_id);
+      if (s && s.client_uuid) op.shop_uuid = s.client_uuid;
+    }
+  }
   // Track pending client_uuids so realtime deltas don't overwrite local state mid-flight
   const uuid = op.payload?.client_uuid || op.match?.client_uuid;
   if (uuid) pendingUuids.add(uuid);
@@ -1292,6 +1309,7 @@ const idMap = {
   master_items: {},  // localId -> serverId
   shops:        {},
   categories:   {},
+  meals:        {},  // for meal_ingredients.meal_id FK
 };
 
 async function loadIdMap() {
@@ -1302,7 +1320,61 @@ async function loadIdMap() {
         try { Object.assign(idMap, JSON.parse(r.value)); } catch (e) {}
       }
     }
+    // Belt-and-braces: ensure all tables exist in idMap even if loaded value
+    // is from an older version that didn't have them
+    idMap.master_items = idMap.master_items || {};
+    idMap.shops        = idMap.shops        || {};
+    idMap.categories   = idMap.categories   || {};
+    idMap.meals        = idMap.meals        || {};
   } catch (e) {}
+}
+
+// One-time queue migration: back-fills FK client_uuids onto existing queued ops
+// so they can resolve foreign keys via state lookup. Needed for queues that
+// were built on versions before v5.11 added stash-at-enqueue.
+async function backfillQueueFKs() {
+  try {
+    const queue = await dbAll('sync_queue');
+    let touched = 0;
+    for (const op of queue) {
+      let changed = false;
+      if (op.payload) {
+        if (op.payload.meal_id != null && !op.meal_uuid) {
+          // We may not have the meal in state anymore (its id has been remapped).
+          // Try to find a meal in state.meals whose client_uuid matches no fake id —
+          // we can't do this reliably, but we can check current state.meals by id.
+          const meal = state.meals.find(m => m.id === op.payload.meal_id);
+          if (meal && meal.client_uuid) {
+            op.meal_uuid = meal.client_uuid;
+            changed = true;
+          }
+        }
+        if (op.payload.master_item_id != null && !op.master_item_uuid) {
+          const m = state.master.find(x => x.id === op.payload.master_item_id);
+          if (m && m.client_uuid) {
+            op.master_item_uuid = m.client_uuid;
+            changed = true;
+          }
+        }
+        if (op.payload.shop_id != null && !op.shop_uuid) {
+          const s = state.shops.find(x => x.id === op.payload.shop_id);
+          if (s && s.client_uuid) {
+            op.shop_uuid = s.client_uuid;
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        // Also reset fail_count so we don't drop on the verge of fixing
+        op.fail_count = 0;
+        await dbPut('sync_queue', op);
+        touched++;
+      }
+    }
+    if (touched > 0) console.log(`Backfilled ${touched} queue ops with FK client_uuids`);
+  } catch (e) {
+    console.warn('backfillQueueFKs failed:', e);
+  }
 }
 
 async function saveIdMap() {
@@ -1311,16 +1383,53 @@ async function saveIdMap() {
   } catch (e) {}
 }
 
-// Rewrite foreign keys in a payload using idMap before sending
-function rewriteFKs(table, payload) {
+// Rewrite foreign keys in a payload using idMap (or fallback to client_uuid
+// lookup in state) before sending. Hardened for the case where the queue
+// survived a refresh but idMap didn't, by stashing FK client_uuids on each op.
+function rewriteFKs(op) {
+  const payload = op.payload;
   if (!payload) return payload;
   const out = { ...payload };
-  if (out.master_item_id != null && idMap.master_items[out.master_item_id] != null) {
-    out.master_item_id = idMap.master_items[out.master_item_id];
+
+  // master_item_id
+  if (out.master_item_id != null) {
+    if (idMap.master_items[out.master_item_id] != null) {
+      out.master_item_id = idMap.master_items[out.master_item_id];
+    } else if (op.master_item_uuid) {
+      const m = state.master.find(x => x.client_uuid === op.master_item_uuid);
+      if (m && m.id != null && m.id !== out.master_item_id) {
+        out.master_item_id = m.id;
+        idMap.master_items[payload.master_item_id] = m.id;
+      }
+    }
   }
-  if (out.shop_id != null && idMap.shops[out.shop_id] != null) {
-    out.shop_id = idMap.shops[out.shop_id];
+
+  // shop_id
+  if (out.shop_id != null) {
+    if (idMap.shops[out.shop_id] != null) {
+      out.shop_id = idMap.shops[out.shop_id];
+    } else if (op.shop_uuid) {
+      const s = state.shops.find(x => x.client_uuid === op.shop_uuid);
+      if (s && s.id != null && s.id !== out.shop_id) {
+        out.shop_id = s.id;
+        idMap.shops[payload.shop_id] = s.id;
+      }
+    }
   }
+
+  // meal_id
+  if (out.meal_id != null) {
+    if (idMap.meals[out.meal_id] != null) {
+      out.meal_id = idMap.meals[out.meal_id];
+    } else if (op.meal_uuid) {
+      const m = state.meals.find(x => x.client_uuid === op.meal_uuid);
+      if (m && m.id != null && m.id !== out.meal_id) {
+        out.meal_id = m.id;
+        idMap.meals[payload.meal_id] = m.id;
+      }
+    }
+  }
+
   return out;
 }
 
@@ -1336,7 +1445,7 @@ async function flushQueue() {
         let q = supabase.from(item.table);
 
         if (item.op === 'insert') {
-          const payload = rewriteFKs(item.table, item.payload);
+          const payload = rewriteFKs(item);
           // Insert and capture server-assigned id so subsequent ops can be remapped
           const { data, error } = await q.insert(payload).select().single();
           if (error) throw error;
@@ -1348,10 +1457,10 @@ async function flushQueue() {
             await rewriteLocalId(item.table, item.local_id, data);
           }
         } else if (item.op === 'upsert') {
-          const payload = rewriteFKs(item.table, item.payload);
+          const payload = rewriteFKs(item);
           const { error } = await q.upsert(payload); if (error) throw error;
         } else if (item.op === 'update') {
-          const payload = rewriteFKs(item.table, item.payload);
+          const payload = rewriteFKs(item);
           let qu = q.update(payload);
           for (const [k, v] of Object.entries(item.match)) {
             // Remap match.id if we've learned a server id for it
@@ -1544,12 +1653,17 @@ async function init() {
   // H12 fix: restore currentTripOrder from existing collected items so route
   // learning isn't broken by a mid-shop refresh
   currentTripOrder = state.current.filter(i => i.collected_at).length;
+  // After local + (will-be) cloud state is loaded, back-fill any queued ops that
+  // are missing FK client_uuids — recovers v5.10 and earlier queues
   render();
   setSyncStatus(navigator.onLine ? 'syncing' : 'offline');
 
   if (navigator.onLine) {
     await loadAllFromCloud();
+    await backfillQueueFKs();  // queue-recovery after we have full server state
     setSyncStatus('connected');
+  } else {
+    await backfillQueueFKs();
   }
 
   supabase.channel('trolley-realtime')

@@ -1,5 +1,5 @@
 // Bump this version any time index.html changes meaningfully
-const CACHE_NAME = 'trolley-v5.10-2026-06-02';
+const CACHE_NAME = 'trolley-v5.11-2026-06-02';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
