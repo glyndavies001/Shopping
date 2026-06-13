@@ -778,7 +778,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.9</div>
+<div class="version-footer">v5.10</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -1382,10 +1382,12 @@ async function flushQueue() {
         }
       } catch (e) {
         console.warn('Sync failed:', item, e);
-        // Increment fail count; drop after 5 retries to avoid infinite stuck queue
+        showError(`queue ${item.op} ${item.table} (fail #${(item.fail_count || 0) + 1})`, e);
+        // Increment fail count. Cap raised to 50 while diagnosing — don't want to
+        // drop user data silently. Items only drop if clearly poisonous.
         item.fail_count = (item.fail_count || 0) + 1;
-        if (item.fail_count >= 5) {
-          console.error('Dropping queued op after 5 retries:', item);
+        if (item.fail_count >= 50) {
+          console.error('Dropping queued op after 50 retries:', item);
           await dbDelete('sync_queue', item.id);
           const droppedUuid = item.payload?.client_uuid || item.match?.client_uuid;
           if (droppedUuid) pendingUuids.delete(droppedUuid);
