@@ -778,7 +778,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.12</div>
+<div class="version-footer">v5.13</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -931,6 +931,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
       <button class="modal-btn" onclick="forceSync()">force sync now</button>
       <button class="modal-btn" onclick="inspectQueue()">🔍 inspect sync queue</button>
+      <button class="modal-btn" onclick="repairQueue()">🔧 repair stuck queue</button>
       <button class="modal-btn" onclick="exportData()">💾 export data (JSON)</button>
       <button class="modal-btn" onclick="document.getElementById('importFile').click()">📂 import data (JSON)</button>
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
@@ -2059,6 +2060,89 @@ window.copyQueueInspect = function() {
     navigator.clipboard.writeText(text).then(() => showToast('copied'));
   } catch (e) {
     showToast('copy failed');
+  }
+};
+
+// One-shot repair: find queued ops whose meal_id/master_item_id/shop_id refer to
+// a fake local id that no longer exists in state, and try to find a unique match
+// by stashed client_uuid OR by lone-row heuristic. Used to recover from queues
+// built before v5.11's enqueue-time stashing.
+window.repairQueue = async function() {
+  try {
+    const queue = await dbAll('sync_queue');
+    if (queue.length === 0) {
+      showToast('queue is empty — nothing to repair');
+      return;
+    }
+    let fixed = 0;
+    let unresolved = [];
+
+    for (const op of queue) {
+      let touched = false;
+      if (!op.payload) continue;
+
+      // meal_id
+      if (op.payload.meal_id != null) {
+        const existsInState = state.meals.some(m => m.id === op.payload.meal_id);
+        if (!existsInState) {
+          // Try stashed uuid
+          let resolved = null;
+          if (op.meal_uuid) {
+            resolved = state.meals.find(m => m.client_uuid === op.meal_uuid);
+          }
+          // Lone-meal heuristic: only one meal in state, and all queue meal refs
+          // point at the same fake id — they likely all refer to that meal
+          if (!resolved && state.meals.length === 1) {
+            const allRefSameFakeId = queue
+              .filter(o => o.payload?.meal_id != null)
+              .every(o => o.payload.meal_id === op.payload.meal_id);
+            if (allRefSameFakeId) {
+              resolved = state.meals[0];
+            }
+          }
+          if (resolved) {
+            op.payload.meal_id = resolved.id;
+            op.meal_uuid = resolved.client_uuid;
+            op.fail_count = 0;
+            touched = true;
+          } else {
+            unresolved.push(`#${op.id} meal_id=${op.payload.meal_id}`);
+          }
+        }
+      }
+
+      // master_item_id
+      if (op.payload.master_item_id != null) {
+        const existsInState = state.master.some(m => m.id === op.payload.master_item_id);
+        if (!existsInState) {
+          let resolved = null;
+          if (op.master_item_uuid) {
+            resolved = state.master.find(m => m.client_uuid === op.master_item_uuid);
+          }
+          if (resolved) {
+            op.payload.master_item_id = resolved.id;
+            op.master_item_uuid = resolved.client_uuid;
+            op.fail_count = 0;
+            touched = true;
+          } else {
+            unresolved.push(`#${op.id} master_item_id=${op.payload.master_item_id}`);
+          }
+        }
+      }
+
+      if (touched) {
+        await dbPut('sync_queue', op);
+        fixed++;
+      }
+    }
+
+    let msg = `repaired ${fixed} ops`;
+    if (unresolved.length > 0) msg += `, ${unresolved.length} could not be resolved`;
+    showToast(msg);
+    // Now retry the flush
+    flushQueue();
+  } catch (e) {
+    showError('repairQueue', e);
   }
 };
 
