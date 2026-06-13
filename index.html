@@ -778,7 +778,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.8</div>
+<div class="version-footer">v5.9</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -1713,7 +1713,7 @@ async function syncPriceHistory() {
 
 async function syncMeals() {
   const { data, error } = await supabase.from('meals').select('*').order('name');
-  if (error) return;
+  if (error) { showError('meals sync', error); return; }
   state.meals = data || [];
   await dbReplaceAll('meals', state.meals);
   scheduleRender();
@@ -1721,7 +1721,7 @@ async function syncMeals() {
 
 async function syncMealIngredients() {
   const { data, error } = await supabase.from('meal_ingredients').select('*').order('sort_order');
-  if (error) return;
+  if (error) { showError('meal_ingredients sync', error); return; }
   state.mealIngredients = data || [];
   await dbReplaceAll('meal_ingredients', state.mealIngredients);
   scheduleRender();
@@ -1729,10 +1729,20 @@ async function syncMealIngredients() {
 
 async function syncOutOfStock() {
   const { data, error } = await supabase.from('out_of_stock').select('*');
-  if (error) return;
+  if (error) { showError('out_of_stock sync', error); return; }
   state.outOfStock = data || [];
   await dbReplaceAll('out_of_stock', state.outOfStock);
   scheduleRender();
+}
+
+function showError(label, err) {
+  try {
+    const banner = document.getElementById('errorBanner');
+    if (!banner) return;
+    const msg = err && (err.message || err.hint || err.details) ? (err.message || err.hint || err.details) : JSON.stringify(err);
+    banner.textContent = `⚠ ${label}: ${msg}`;
+    banner.style.display = 'block';
+  } catch (_) {}
 }
 
 // Apply a realtime postgres_changes payload directly without full refetch.
