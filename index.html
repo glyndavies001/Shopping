@@ -466,6 +466,8 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   background: var(--danger); color: #fff; border-color: var(--danger);
 }
 .modal-btn.danger-strong:active { opacity: 0.85; }
+/* Always above other modals so it can confirm actions triggered from inside them */
+#confirmModal { z-index: 300; }
 
 /* Ingredient typeahead (combined search-or-add) */
 .ing-typeahead { position: relative; width: 100%; }
@@ -831,7 +833,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   </div>
 </div>
 
-<div class="version-footer">v5.19</div>
+<div class="version-footer">v5.20</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -979,7 +981,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
     <h2>Settings</h2>
     <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.19</span></p>
+    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.20</span></p>
     <div class="modal-btn-row" style="flex-direction:column;gap:8px">
       <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
