@@ -141,10 +141,12 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   background: none; border: none; color: var(--text-dim); cursor: pointer;
   padding: 4px; font-size: 16px; line-height: 1;
 }
-.queue-badge {
-  background: var(--warning); color: #000; border-radius: 99px;
-  font-size: 9px; padding: 2px 6px; font-weight: 700;
+/* Subtle pulsing dot next to sync-dot — visible while any write is in flight */
+.saving-indicator {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); opacity: 0; transition: opacity 0.2s;
 }
+.saving-indicator.show { opacity: 1; animation: pulse 0.8s infinite; }
 
 .shop-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--text-dim); }
 .shop-select {
@@ -698,13 +700,13 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 </div>
 
 <div id="app" style="display:none">
-  <div class="offline-banner" id="offlineBanner">⚠ offline — changes will sync when reconnected</div>
+  <div class="offline-banner" id="offlineBanner">⚠ offline — changes won't save until you're back online</div>
   <div class="error-banner" id="errorBanner" onclick="this.style.display='none'" title="tap to dismiss"></div>
   <header>
     <div class="header-top">
       <div class="logo">trolley</div>
       <div class="header-meta">
-        <span class="queue-badge" id="queueBadge" style="display:none">0</span>
+        <span class="saving-indicator" id="savingIndicator" title="saving..."></span>
         <span class="sync-dot" id="syncDot"></span>
         <button class="icon-btn" onclick="openSettings()" title="settings">⚙</button>
       </div>
@@ -778,7 +780,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.15</div>
+<div class="version-footer">v5.16</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -926,13 +928,11 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
     <h2>Settings</h2>
     <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.15</span></p>
+    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.16</span></p>
     <div class="modal-btn-row" style="flex-direction:column;gap:8px">
       <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
-      <button class="modal-btn" onclick="forceSync()">force sync now</button>
-      <button class="modal-btn" onclick="inspectQueue()">🔍 inspect sync queue</button>
-      <button class="modal-btn" onclick="repairQueue()">🔧 repair stuck queue</button>
+      <button class="modal-btn" onclick="forceSync()">refresh from server</button>
       <button class="modal-btn" onclick="exportData()">💾 export data (JSON)</button>
       <button class="modal-btn" onclick="document.getElementById('importFile').click()">📂 import data (JSON)</button>
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
@@ -1185,7 +1185,7 @@ function fmtMoney(n) {
 // ════════════════════════════════════════════════════════════════════════════
 
 const DB_NAME = 'trolley-v5';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 let db = null;
 
 function openDB() {
@@ -1193,7 +1193,6 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = e => {
       const d = e.target.result;
-      const tx = e.target.transaction;
       ['shops','master_items','current_list','trips','categories','price_history',
        'meals','meal_ingredients','out_of_stock']
         .forEach(s => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: 'id' }); });
@@ -1204,7 +1203,10 @@ function openDB() {
       }
       d.createObjectStore('app_state', { keyPath: 'key' });
       if (!d.objectStoreNames.contains('order_map')) d.createObjectStore('order_map', { keyPath: ['shop_id','name'] });
-      if (!d.objectStoreNames.contains('sync_queue')) d.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
+      // Drop sync_queue (v5.16+: no more offline queue)
+      if (d.objectStoreNames.contains('sync_queue')) {
+        try { d.deleteObjectStore('sync_queue'); } catch (e) {}
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -1253,292 +1255,104 @@ async function dbReplaceAll(store, items) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// SYNC QUEUE
+// SUPABASE WRITES — direct ops with retry-once-then-toast
 // ════════════════════════════════════════════════════════════════════════════
 
-async function enqueue(op) {
-  // For inserts of rows with a client_uuid, capture local_id for later FK remapping
-  if (op.op === 'insert' && op.payload && op.payload.client_uuid) {
-    const stateKey = tableToStateKey(op.table);
-    if (stateKey) {
-      const src = state[stateKey].find(r => r.client_uuid === op.payload.client_uuid);
-      if (src && src.id != null) op.local_id = src.id;
-    }
-  }
-  // Capture client_uuids of foreign-keyed rows so flush can resolve them via
-  // state.* lookup even if idMap was lost (e.g. after refresh). More robust
-  // than relying solely on idMap which is in-memory until saveIdMap commits.
-  if (op.payload) {
-    if (op.payload.meal_id != null) {
-      const meal = state.meals.find(m => m.id === op.payload.meal_id);
-      if (meal && meal.client_uuid) op.meal_uuid = meal.client_uuid;
-    }
-    if (op.payload.master_item_id != null) {
-      const m = state.master.find(x => x.id === op.payload.master_item_id);
-      if (m && m.client_uuid) op.master_item_uuid = m.client_uuid;
-    }
-    if (op.payload.shop_id != null) {
-      const s = state.shops.find(x => x.id === op.payload.shop_id);
-      if (s && s.client_uuid) op.shop_uuid = s.client_uuid;
-    }
-  }
-  // Track pending client_uuids so realtime deltas don't overwrite local state mid-flight
-  const uuid = op.payload?.client_uuid || op.match?.client_uuid;
-  if (uuid) pendingUuids.add(uuid);
-  await dbPut('sync_queue', { ...op, ts: Date.now() });
-  updateQueueBadge();
-  flushQueue();
+// Tracks in-flight writes for the global "saving" indicator
+const inflightWrites = new Set();
+let inflightCounter = 0;
+function startInflight() {
+  const id = ++inflightCounter;
+  inflightWrites.add(id);
+  updateSavingIndicator();
+  return id;
+}
+function endInflight(id) {
+  inflightWrites.delete(id);
+  updateSavingIndicator();
+}
+function updateSavingIndicator() {
+  const el = document.getElementById('savingIndicator');
+  if (!el) return;
+  if (inflightWrites.size > 0) el.classList.add('show');
+  else el.classList.remove('show');
 }
 
-// Client UUIDs with pending queue operations. Realtime deltas for these are
-// ignored to prevent races where a server INSERT broadcast overwrites a local
-// follow-up UPDATE (e.g. rapid tap +need then +qty).
-const pendingUuids = new Set();
-
-function tableToStateKey(table) {
-  return ({
-    master_items: 'master', current_list: 'current',
-    shops: 'shops', trips: 'trips', categories: 'categories',
-    price_history: 'priceHistory',
-    meals: 'meals', meal_ingredients: 'mealIngredients',
-    out_of_stock: 'outOfStock',
-  })[table];
-}
-
-// Map from local fake bigint IDs to real Supabase IDs, populated when an insert
-// returns its serverside id. Used to rewrite foreign keys in subsequent ops.
-// Persisted to IndexedDB so it survives reloads (C2 fix).
-const idMap = {
-  master_items: {},  // localId -> serverId
-  shops:        {},
-  categories:   {},
-  meals:        {},  // for meal_ingredients.meal_id FK
-};
-
-async function loadIdMap() {
+// Wraps a Supabase call: retries once on failure, then toasts and re-throws.
+// Returns the data on success, or null on failure (caller can choose to roll back).
+async function sbWrite(label, fn) {
+  const inflight = startInflight();
   try {
-    const rows = await dbAll('app_state');
-    for (const r of rows) {
-      if (r.key === 'idMap') {
-        try { Object.assign(idMap, JSON.parse(r.value)); } catch (e) {}
-      }
+    let result;
+    try {
+      result = await fn();
+    } catch (e) {
+      // First attempt failed — wait briefly and retry once
+      await new Promise(r => setTimeout(r, 250));
+      result = await fn();
     }
-    // Belt-and-braces: ensure all tables exist in idMap even if loaded value
-    // is from an older version that didn't have them
-    idMap.master_items = idMap.master_items || {};
-    idMap.shops        = idMap.shops        || {};
-    idMap.categories   = idMap.categories   || {};
-    idMap.meals        = idMap.meals        || {};
-  } catch (e) {}
-}
-
-// One-time queue migration: back-fills FK client_uuids onto existing queued ops
-// so they can resolve foreign keys via state lookup. Needed for queues that
-// were built on versions before v5.11 added stash-at-enqueue.
-async function backfillQueueFKs() {
-  try {
-    const queue = await dbAll('sync_queue');
-    let touched = 0;
-    for (const op of queue) {
-      let changed = false;
-      if (op.payload) {
-        if (op.payload.meal_id != null && !op.meal_uuid) {
-          // We may not have the meal in state anymore (its id has been remapped).
-          // Try to find a meal in state.meals whose client_uuid matches no fake id —
-          // we can't do this reliably, but we can check current state.meals by id.
-          const meal = state.meals.find(m => m.id === op.payload.meal_id);
-          if (meal && meal.client_uuid) {
-            op.meal_uuid = meal.client_uuid;
-            changed = true;
-          }
-        }
-        if (op.payload.master_item_id != null && !op.master_item_uuid) {
-          const m = state.master.find(x => x.id === op.payload.master_item_id);
-          if (m && m.client_uuid) {
-            op.master_item_uuid = m.client_uuid;
-            changed = true;
-          }
-        }
-        if (op.payload.shop_id != null && !op.shop_uuid) {
-          const s = state.shops.find(x => x.id === op.payload.shop_id);
-          if (s && s.client_uuid) {
-            op.shop_uuid = s.client_uuid;
-            changed = true;
-          }
-        }
-      }
-      if (changed) {
-        // Also reset fail_count so we don't drop on the verge of fixing
-        op.fail_count = 0;
-        await dbPut('sync_queue', op);
-        touched++;
-      }
+    if (result && result.error) {
+      // Supabase wraps errors in {data, error} — retry once
+      await new Promise(r => setTimeout(r, 250));
+      result = await fn();
+      if (result.error) throw result.error;
     }
-    if (touched > 0) console.log(`Backfilled ${touched} queue ops with FK client_uuids`);
-  } catch (e) {
-    console.warn('backfillQueueFKs failed:', e);
-  }
-}
-
-async function saveIdMap() {
-  try {
-    await dbPut('app_state', { key: 'idMap', value: JSON.stringify(idMap) });
-  } catch (e) {}
-}
-
-// Rewrite foreign keys in a payload using idMap (or fallback to client_uuid
-// lookup in state) before sending. Hardened for the case where the queue
-// survived a refresh but idMap didn't, by stashing FK client_uuids on each op.
-function rewriteFKs(op) {
-  const payload = op.payload;
-  if (!payload) return payload;
-  const out = { ...payload };
-
-  // master_item_id
-  if (out.master_item_id != null) {
-    if (idMap.master_items[out.master_item_id] != null) {
-      out.master_item_id = idMap.master_items[out.master_item_id];
-    } else if (op.master_item_uuid) {
-      const m = state.master.find(x => x.client_uuid === op.master_item_uuid);
-      if (m && m.id != null && m.id !== out.master_item_id) {
-        out.master_item_id = m.id;
-        idMap.master_items[payload.master_item_id] = m.id;
-      }
-    }
-  }
-
-  // shop_id
-  if (out.shop_id != null) {
-    if (idMap.shops[out.shop_id] != null) {
-      out.shop_id = idMap.shops[out.shop_id];
-    } else if (op.shop_uuid) {
-      const s = state.shops.find(x => x.client_uuid === op.shop_uuid);
-      if (s && s.id != null && s.id !== out.shop_id) {
-        out.shop_id = s.id;
-        idMap.shops[payload.shop_id] = s.id;
-      }
-    }
-  }
-
-  // meal_id
-  if (out.meal_id != null) {
-    if (idMap.meals[out.meal_id] != null) {
-      out.meal_id = idMap.meals[out.meal_id];
-    } else if (op.meal_uuid) {
-      const m = state.meals.find(x => x.client_uuid === op.meal_uuid);
-      if (m && m.id != null && m.id !== out.meal_id) {
-        out.meal_id = m.id;
-        idMap.meals[payload.meal_id] = m.id;
-      }
-    }
-  }
-
-  return out;
-}
-
-let isFlushing = false; // prevent concurrent flushes  (S3 typo fix)
-
-async function flushQueue() {
-  if (!supabase || !navigator.onLine || isFlushing) return;
-  isFlushing = true;
-  try {
-    const items = await dbAll('sync_queue');
-    for (const item of items) {
-      try {
-        let q = supabase.from(item.table);
-
-        if (item.op === 'insert') {
-          const payload = rewriteFKs(item);
-          // Insert and capture server-assigned id so subsequent ops can be remapped
-          const { data, error } = await q.insert(payload).select().single();
-          if (error) throw error;
-          // If this row had a local fake id stored on the original op, remember the mapping
-          if (item.local_id != null && data && data.id != null && data.id !== item.local_id) {
-            if (idMap[item.table]) idMap[item.table][item.local_id] = data.id;
-            await saveIdMap();  // C2 fix: persist immediately
-            // Update local row to use server id
-            await rewriteLocalId(item.table, item.local_id, data);
-          }
-        } else if (item.op === 'upsert') {
-          const payload = rewriteFKs(item);
-          const { error } = await q.upsert(payload); if (error) throw error;
-        } else if (item.op === 'update') {
-          const payload = rewriteFKs(item);
-          let qu = q.update(payload);
-          for (const [k, v] of Object.entries(item.match)) {
-            // Remap match.id if we've learned a server id for it
-            const remapped = (k === 'id' && idMap[item.table] && idMap[item.table][v] != null)
-              ? idMap[item.table][v] : v;
-            qu = qu.eq(k, remapped);
-          }
-          const { error } = await qu; if (error) throw error;
-        } else if (item.op === 'delete') {
-          let qu = q.delete();
-          for (const [k, v] of Object.entries(item.match)) {
-            const remapped = (k === 'id' && idMap[item.table] && idMap[item.table][v] != null)
-              ? idMap[item.table][v] : v;
-            qu = qu.eq(k, remapped);
-          }
-          const { error } = await qu; if (error) throw error;
-        }
-        await dbDelete('sync_queue', item.id);
-        // Clear pending lock once this op is done so realtime can resume
-        const doneUuid = item.payload?.client_uuid || item.match?.client_uuid;
-        if (doneUuid) {
-          // Only clear if no later ops in queue still target this uuid
-          const remaining = await dbAll('sync_queue');
-          const stillPending = remaining.some(o =>
-            (o.payload?.client_uuid === doneUuid) || (o.match?.client_uuid === doneUuid)
-          );
-          if (!stillPending) pendingUuids.delete(doneUuid);
-        }
-      } catch (e) {
-        console.warn('Sync failed:', item, e);
-        showError(`queue ${item.op} ${item.table} (fail #${(item.fail_count || 0) + 1})`, e);
-        // Increment fail count. Cap raised to 50 while diagnosing — don't want to
-        // drop user data silently. Items only drop if clearly poisonous.
-        item.fail_count = (item.fail_count || 0) + 1;
-        if (item.fail_count >= 50) {
-          console.error('Dropping queued op after 50 retries:', item);
-          await dbDelete('sync_queue', item.id);
-          const droppedUuid = item.payload?.client_uuid || item.match?.client_uuid;
-          if (droppedUuid) pendingUuids.delete(droppedUuid);
-        } else {
-          await dbPut('sync_queue', item);
-          break; // stop processing this batch; will retry later
-        }
-      }
-    }
+    return result;
+  } catch (err) {
+    showToast(`couldn't save: ${err.message || label}`);
+    console.error(`sbWrite ${label} failed:`, err);
+    return null;
   } finally {
-    isFlushing = false;
-    updateQueueBadge();
+    endInflight(inflight);
   }
 }
 
-// When an insert returns a real server ID, update the local cache so subsequent
-// in-memory operations target the right row
-async function rewriteLocalId(table, oldId, serverRow) {
-  const storeName = table;
-  const stateKey = tableToStateKey(table);
-  if (!stateKey) return;
-  const local = state[stateKey];
-  const row = local.find(r => r.id === oldId);
-  if (row) {
-    await dbDelete(storeName, oldId);
-    Object.assign(row, serverRow);
-    await dbPut(storeName, row);
-  }
+// Insert and return the server row (with real id). null on failure.
+async function sbInsert(table, payload) {
+  const res = await sbWrite(`insert ${table}`, () =>
+    supabase.from(table).insert(payload).select().single()
+  );
+  return res ? res.data : null;
 }
 
-async function updateQueueBadge() {
-  const items = await dbAll('sync_queue');
-  const badge = document.getElementById('queueBadge');
-  const qc = document.getElementById('queueCount');
-  if (qc) qc.textContent = items.length;
-  if (badge) {
-    badge.style.display = items.length > 0 ? 'inline-block' : 'none';
-    badge.textContent = items.length;
-  }
+// Update. Returns true on success, false on failure.
+async function sbUpdate(table, id, fields) {
+  const res = await sbWrite(`update ${table}`, () =>
+    supabase.from(table).update(fields).eq('id', id)
+  );
+  return res !== null;
+}
+
+// Delete. Returns true on success.
+async function sbDelete(table, id) {
+  const res = await sbWrite(`delete ${table}`, () =>
+    supabase.from(table).delete().eq('id', id)
+  );
+  return res !== null;
+}
+
+// Upsert (for app_state etc.)
+async function sbUpsert(table, payload) {
+  const res = await sbWrite(`upsert ${table}`, () =>
+    supabase.from(table).upsert(payload)
+  );
+  return res !== null;
+}
+
+// Tracks ids of rows just inserted, so realtime echoes don't double-render
+// (the local row from our own insert is already in state).
+const recentlyInsertedIds = new Map(); // table -> Set of ids
+function markRecentlyInserted(table, id) {
+  if (!recentlyInsertedIds.has(table)) recentlyInsertedIds.set(table, new Set());
+  recentlyInsertedIds.get(table).add(id);
+  setTimeout(() => {
+    const s = recentlyInsertedIds.get(table);
+    if (s) s.delete(id);
+  }, 2000);
+}
+function isRecentlyInserted(table, id) {
+  const s = recentlyInsertedIds.get(table);
+  return s ? s.has(id) : false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1564,13 +1378,10 @@ let scannerStream = null;
 let scannerDetector = null;
 let qrScannerStream = null;
 
-// M2: Set of client_uuids of items just added in last few seconds — render
-// adds .flash-new class so user sees visual confirmation
-const recentlyAdded = new Set();
-function markRecentlyAdded(uuid) {
-  if (!uuid) return;
-  recentlyAdded.add(uuid);
-  setTimeout(() => { recentlyAdded.delete(uuid); }, 1200);
+// M2: ids of items just inserted in last few seconds — applies a .flash-new
+// class so user sees visual confirmation. Powered by recentlyInsertedIds.
+function isRecentlyAddedCurrent(id) {
+  return isRecentlyInserted('current_list', id);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1617,15 +1428,9 @@ window.disconnect = function() {
 };
 
 window.clearLocalCache = async function() {
-  // H14 fix: warn explicitly about queue
-  const queueItems = await dbAll('sync_queue');
-  let msg = 'Clear local cache and reload?';
-  if (queueItems.length > 0) {
-    msg = `You have ${queueItems.length} pending sync${queueItems.length > 1 ? 's' : ''} that haven't reached the server yet. Clearing cache will discard them. Continue?`;
-  }
-  if (!confirm(msg)) return;
-  for (const s of ['shops','master_items','current_list','trips','order_map','app_state','categories','price_history','sync_queue']) {
-    await dbClear(s);
+  if (!confirm('Clear local cache and reload from server?')) return;
+  for (const s of ['shops','master_items','current_list','trips','order_map','app_state','categories','price_history','meals','meal_ingredients','out_of_stock']) {
+    try { await dbClear(s); } catch (e) {}
   }
   closeSettings();
   await loadAllFromCloud();
@@ -1650,23 +1455,17 @@ async function init() {
   db = await openDB();
   supabase = createClient(cfg.url, cfg.key);
 
-  await loadIdMap();         // C2 fix: restore mapping from previous session
   await loadAllFromLocal();
   ensureBuiltinCategories();
   // H12 fix: restore currentTripOrder from existing collected items so route
   // learning isn't broken by a mid-shop refresh
   currentTripOrder = state.current.filter(i => i.collected_at).length;
-  // After local + (will-be) cloud state is loaded, back-fill any queued ops that
-  // are missing FK client_uuids — recovers v5.10 and earlier queues
   render();
   setSyncStatus(navigator.onLine ? 'syncing' : 'offline');
 
   if (navigator.onLine) {
     await loadAllFromCloud();
-    await backfillQueueFKs();  // queue-recovery after we have full server state
     setSyncStatus('connected');
-  } else {
-    await backfillQueueFKs();
   }
 
   supabase.channel('trolley-realtime')
@@ -1683,12 +1482,9 @@ async function init() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'out_of_stock' }, p => applyDelta('out_of_stock', p))
     .subscribe();
 
-  flushQueue();
   window.addEventListener('online', onOnline);
   window.addEventListener('offline', onOffline);
-  updateQueueBadge();
   populateCategorySelect();
-  // M8: show offline banner if already offline on launch
   if (!navigator.onLine) document.getElementById('offlineBanner').classList.add('show');
 
   // Show tour if first time
@@ -1871,19 +1667,13 @@ async function applyDelta(table, payload) {
   if (!stateKey) return;
   const arr = state[stateKey];
 
-  // Bug fix: skip realtime overwrite if we have a pending local change for this
-  // row (prevents rapid-tap qty loss and prevents server INSERT broadcast from
-  // wiping a follow-up local UPDATE)
-  const incomingUuid = payload.new?.client_uuid || payload.old?.client_uuid;
-  if (incomingUuid && pendingUuids.has(incomingUuid)) {
+  // Skip realtime echo of our own just-inserted rows to avoid double-add
+  if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')
+      && payload.new && isRecentlyInserted(table, payload.new.id)) {
     return;
   }
 
-  // C4 fix: for categories, match by 'key' (unique business identifier) as well
-  // as by client_uuid/id. Prevents duplication when local placeholders (ID 10000+)
-  // collide with server-assigned IDs (1-11) for the same category.
   const findMatch = (row) => arr.findIndex(r =>
-    (row.client_uuid && r.client_uuid === row.client_uuid) ||
     (table === 'categories' && row.key && r.key === row.key) ||
     r.id === row.id
   );
@@ -1898,8 +1688,6 @@ async function applyDelta(table, payload) {
     const newRow = payload.new;
     const idx = findMatch(newRow);
     if (idx >= 0) {
-      // If category had a placeholder id (10000+), drop the old id from IndexedDB
-      // before merging in server data with the real id
       const oldId = arr[idx].id;
       Object.assign(arr[idx], newRow);
       if (oldId !== newRow.id) {
@@ -1914,8 +1702,6 @@ async function applyDelta(table, payload) {
   if (table === 'trips') {
     state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
   }
-  // Bug fix: dedup current_list after any change (multi-device race protection)
-  if (table === 'current_list') dedupCurrentList();
   scheduleRender();
 }
 
@@ -1944,55 +1730,16 @@ async function applyAppStateDelta(payload) {
   scheduleRender();
 }
 
-// Merge duplicate current_list rows when they look like accidental dupes
-// (created within a short time window, both still at default quantity).
-// Doesn't touch rows the user has clearly customised.
-async function dedupCurrentList() {
-  const byMaster = {}; // master_item_id -> [rows]
-  for (const item of state.current) {
-    if (item.collected_at || !item.master_item_id) continue;
-    if (!byMaster[item.master_item_id]) byMaster[item.master_item_id] = [];
-    byMaster[item.master_item_id].push(item);
-  }
-  const toDelete = [];
-  for (const masterId in byMaster) {
-    const rows = byMaster[masterId];
-    if (rows.length < 2) continue;
-    // C1 fix: only treat as accidental duplicates if:
-    // (a) all rows have quantity == 1 (default; user hasn't bumped)
-    // (b) all rows were added within a 5-second window
-    rows.sort((a,b) => new Date(a.added_at) - new Date(b.added_at));
-    const allDefaultQty = rows.every(r => (r.quantity || 1) === 1);
-    const timeSpan = new Date(rows[rows.length-1].added_at) - new Date(rows[0].added_at);
-    if (!allDefaultQty || timeSpan > 5000) continue;
-    // Safe to merge: keep first, delete rest, set qty to count
-    const keeper = rows[0];
-    const dupes = rows.slice(1);
-    keeper.quantity = rows.length;
-    keeper.need_more = rows.some(r => r.need_more);
-    await dbPut('current_list', keeper);
-    await enqueue({ op: 'update', table: 'current_list',
-      payload: { quantity: keeper.quantity, need_more: keeper.need_more },
-      match: matchBy(keeper) });
-    for (const d of dupes) toDelete.push(d);
-  }
-  for (const d of toDelete) {
-    state.current = state.current.filter(c => c.id !== d.id);
-    try { await dbDelete('current_list', d.id); } catch (e) {}
-    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(d) });
-  }
-}
-
 function onOnline() {
   setSyncStatus('syncing');
   document.getElementById('netStatus').textContent = 'online';
   document.getElementById('offlineBanner').classList.remove('show');
-  flushQueue().then(() => loadAllFromCloud()).then(() => setSyncStatus('connected'));
+  loadAllFromCloud().then(() => setSyncStatus('connected'));
 }
 
 function onOffline() {
   setSyncStatus('offline');
-  document.getElementById('netStatus').textContent = 'offline (queued)';
+  document.getElementById('netStatus').textContent = 'offline';
   document.getElementById('offlineBanner').classList.add('show');
 }
 
@@ -2004,181 +1751,15 @@ function setSyncStatus(s) {
 
 window.forceSync = async function() {
   setSyncStatus('syncing');
-  await flushQueue();
   await loadAllFromCloud();
   setSyncStatus('connected');
-  showToast('synced');
-};
-
-// Diagnostic: dump queue contents to a modal so we can see what's stuck
-window.inspectQueue = async function() {
-  try {
-    const queue = await dbAll('sync_queue');
-    const rows = queue.map(op => {
-      const fk = [];
-      if (op.payload?.meal_id != null) fk.push(`meal_id=${op.payload.meal_id}${op.meal_uuid ? ' (uuid:' + op.meal_uuid.slice(0,8) + '...)' : ' NO_UUID'}`);
-      if (op.payload?.master_item_id != null) fk.push(`master_id=${op.payload.master_item_id}${op.master_item_uuid ? ' (uuid:' + op.master_item_uuid.slice(0,8) + '...)' : ' NO_UUID'}`);
-      if (op.payload?.shop_id != null) fk.push(`shop_id=${op.payload.shop_id}${op.shop_uuid ? ' ✓' : ' NO_UUID'}`);
-      const name = op.payload?.name || '';
-      const fail = op.fail_count ? ` fail#${op.fail_count}` : '';
-      return {
-        id: op.id,
-        text: `#${op.id} ${op.op} ${op.table}${name ? ' "' + name + '"' : ''} ${fk.join(', ')}${fail}`,
-      };
-    });
-
-    const mealsList = state.meals.map(m =>
-      `id=${m.id} uuid=${(m.client_uuid || '').slice(0,8)}... "${m.name}"`
-    ).join('\n');
-
-    let modal = document.getElementById('queueInspectModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'queueInspectModal';
-      modal.className = 'modal-bg';
-      modal.innerHTML = `
-        <div class="modal-card" style="max-width:90vw">
-          <h2>Queue inspector</h2>
-          <div id="queueInspectRows" style="font-size:10px;max-height:50vh;overflow:auto;margin-bottom:8px"></div>
-          <pre id="queueInspectText" style="font-size:10px;background:var(--bg);padding:10px;border-radius:8px;overflow:auto;max-height:30vh;white-space:pre-wrap;word-break:break-all"></pre>
-          <div class="modal-btn-row">
-            <button class="modal-btn" onclick="copyQueueInspect()">copy</button>
-            <button class="modal-btn primary" onclick="document.getElementById('queueInspectModal').classList.remove('show')">close</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-    }
-
-    // Per-op rows with a drop button
-    const rowsHtml = rows.length === 0
-      ? '<div style="color:var(--muted);padding:10px;text-align:center">queue is empty</div>'
-      : rows.map(r => `
-          <div style="display:flex;align-items:start;gap:6px;padding:8px;background:var(--surface2);border-radius:6px;margin-bottom:4px">
-            <div style="flex:1;font-family:monospace;font-size:10px;word-break:break-all">${escHtml(r.text)}</div>
-            <button class="modal-btn danger" style="padding:4px 8px;font-size:10px;flex-shrink:0" onclick="dropQueueOp(${r.id})">drop</button>
-          </div>
-        `).join('');
-    document.getElementById('queueInspectRows').innerHTML = rowsHtml;
-
-    const meta = `MEALS IN STATE (${state.meals.length}):\n${mealsList || '(none)'}\n\nidMap.meals:\n${JSON.stringify(idMap.meals, null, 2)}`;
-    document.getElementById('queueInspectText').textContent = meta;
-
-    modal.classList.add('show');
-  } catch (e) {
-    showError('inspectQueue', e);
-  }
-};
-
-window.dropQueueOp = async function(opId) {
-  if (!confirm(`Drop queue op #${opId}? The data won't be sent to Supabase.`)) return;
-  try {
-    await dbDelete('sync_queue', opId);
-    updateQueueBadge();
-    showToast(`dropped #${opId}`);
-    // Re-open inspector with updated list
-    inspectQueue();
-  } catch (e) {
-    showError('dropQueueOp', e);
-  }
-};
-
-window.copyQueueInspect = function() {
-  try {
-    const text = document.getElementById('queueInspectText').textContent;
-    navigator.clipboard.writeText(text).then(() => showToast('copied'));
-  } catch (e) {
-    showToast('copy failed');
-  }
-};
-
-// One-shot repair: find queued ops whose meal_id/master_item_id/shop_id refer to
-// a fake local id that no longer exists in state, and try to find a unique match
-// by stashed client_uuid OR by lone-row heuristic. Used to recover from queues
-// built before v5.11's enqueue-time stashing.
-window.repairQueue = async function() {
-  try {
-    const queue = await dbAll('sync_queue');
-    if (queue.length === 0) {
-      showToast('queue is empty — nothing to repair');
-      return;
-    }
-    let fixed = 0;
-    let unresolved = [];
-
-    for (const op of queue) {
-      let touched = false;
-      if (!op.payload) continue;
-
-      // meal_id
-      if (op.payload.meal_id != null) {
-        const existsInState = state.meals.some(m => m.id === op.payload.meal_id);
-        if (!existsInState) {
-          // Try stashed uuid
-          let resolved = null;
-          if (op.meal_uuid) {
-            resolved = state.meals.find(m => m.client_uuid === op.meal_uuid);
-          }
-          // Lone-meal heuristic: only one meal in state, and all queue meal refs
-          // point at the same fake id — they likely all refer to that meal
-          if (!resolved && state.meals.length === 1) {
-            const allRefSameFakeId = queue
-              .filter(o => o.payload?.meal_id != null)
-              .every(o => o.payload.meal_id === op.payload.meal_id);
-            if (allRefSameFakeId) {
-              resolved = state.meals[0];
-            }
-          }
-          if (resolved) {
-            op.payload.meal_id = resolved.id;
-            op.meal_uuid = resolved.client_uuid;
-            op.fail_count = 0;
-            touched = true;
-          } else {
-            unresolved.push(`#${op.id} meal_id=${op.payload.meal_id}`);
-          }
-        }
-      }
-
-      // master_item_id
-      if (op.payload.master_item_id != null) {
-        const existsInState = state.master.some(m => m.id === op.payload.master_item_id);
-        if (!existsInState) {
-          let resolved = null;
-          if (op.master_item_uuid) {
-            resolved = state.master.find(m => m.client_uuid === op.master_item_uuid);
-          }
-          if (resolved) {
-            op.payload.master_item_id = resolved.id;
-            op.master_item_uuid = resolved.client_uuid;
-            op.fail_count = 0;
-            touched = true;
-          } else {
-            unresolved.push(`#${op.id} master_item_id=${op.payload.master_item_id}`);
-          }
-        }
-      }
-
-      if (touched) {
-        await dbPut('sync_queue', op);
-        fixed++;
-      }
-    }
-
-    let msg = `repaired ${fixed} ops`;
-    if (unresolved.length > 0) msg += `, ${unresolved.length} could not be resolved`;
-    showToast(msg);
-    // Now retry the flush
-    flushQueue();
-  } catch (e) {
-    showError('repairQueue', e);
-  }
+  showToast('refreshed');
 };
 
 // S8 fix: export everything as JSON for backup / portability
 window.exportData = async function() {
   const data = {
-    version: 'v5.6',
+    version: 'v5.16',
     exported_at: new Date().toISOString(),
     shops: state.shops,
     master_items: state.master,
@@ -2187,6 +1768,9 @@ window.exportData = async function() {
     trips: state.trips,
     categories: state.categories,
     price_history: state.priceHistory,
+    meals: state.meals,
+    meal_ingredients: state.mealIngredients,
+    out_of_stock: state.outOfStock,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -2213,45 +1797,66 @@ window.importData = async function(e) {
     const text = await file.text();
     const data = JSON.parse(text);
     if (!data || typeof data !== 'object') throw new Error('Not a valid backup file');
-    let imported = { master: 0, trips: 0 };
+    let imported = { master: 0, trips: 0, meals: 0 };
 
-    // Import master items (skip duplicates by name)
+    // Master items: skip duplicates by name
     for (const m of (data.master_items || [])) {
       if (state.master.find(x => x.name.toLowerCase() === m.name.toLowerCase())) continue;
-      const newRow = {
-        ...m,
-        id: genId(),
-        client_uuid: m.client_uuid || genUuid(),
-      };
-      state.master.push(newRow);
-      await dbPut('master_items', newRow);
-      const { id, ...payload } = newRow;
-      await enqueue({ op: 'insert', table: 'master_items', payload });
-      imported.master++;
+      const { id, client_uuid, ...payload } = m;
+      const real = await sbInsert('master_items', payload);
+      if (real) {
+        state.master.push(real);
+        await dbPut('master_items', real);
+        imported.master++;
+      }
     }
 
-    // Import trips (skip duplicates by completed_at + item_count)
+    // Trips: skip duplicates by completed_at + item_count
     for (const t of (data.trips || [])) {
       const dupe = state.trips.find(x =>
         x.completed_at === t.completed_at && x.item_count === t.item_count
       );
       if (dupe) continue;
-      const newTrip = {
-        ...t,
-        id: genId(),
-        client_uuid: t.client_uuid || genUuid(),
-      };
-      state.trips.push(newTrip);
-      await dbPut('trips', newTrip);
-      const { id, ...payload } = newTrip;
-      await enqueue({ op: 'insert', table: 'trips', payload });
-      imported.trips++;
+      const { id, client_uuid, ...payload } = t;
+      const real = await sbInsert('trips', payload);
+      if (real) {
+        state.trips.push(real);
+        await dbPut('trips', real);
+        imported.trips++;
+      }
+    }
+
+    // Meals: skip duplicates by name; remap ingredient FK from old meal id to new
+    for (const meal of (data.meals || [])) {
+      if (state.meals.find(x => x.name.toLowerCase() === meal.name.toLowerCase())) continue;
+      const { id: oldMealId, client_uuid, ...payload } = meal;
+      const real = await sbInsert('meals', payload);
+      if (real) {
+        state.meals.push(real);
+        await dbPut('meals', real);
+        imported.meals++;
+        // Import this meal's ingredients
+        const ings = (data.meal_ingredients || []).filter(i => i.meal_id === oldMealId);
+        for (const ing of ings) {
+          // Find the master by name (it should exist after master import above)
+          const master = state.master.find(x => x.name.toLowerCase() === (ing.name || '').toLowerCase());
+          if (!master) continue;
+          const { id: _, client_uuid: __, meal_id: ___, master_item_id: ____, ...ingPayload } = ing;
+          ingPayload.meal_id = real.id;
+          ingPayload.master_item_id = master.id;
+          const ingReal = await sbInsert('meal_ingredients', ingPayload);
+          if (ingReal) {
+            state.mealIngredients.push(ingReal);
+            await dbPut('meal_ingredients', ingReal);
+          }
+        }
+      }
     }
 
     state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
     render();
     closeSettings();
-    showToast(`imported ${imported.master} items, ${imported.trips} trips`);
+    showToast(`imported ${imported.master} items, ${imported.trips} trips, ${imported.meals} meals`);
   } catch (err) {
     showToast('import failed: ' + err.message);
   }
@@ -2271,7 +1876,7 @@ async function recordCollection(name, orderPos) {
   if (!state.orderMap[state.activeShopId]) state.orderMap[state.activeShopId] = {};
   state.orderMap[state.activeShopId][name] = newScore;
   await dbPut('order_map', { shop_id: state.activeShopId, name, score: newScore });
-  await enqueue({ op: 'upsert', table: 'order_map', payload: { shop_id: state.activeShopId, name, score: newScore } });
+  await sbUpsert('order_map', { shop_id: state.activeShopId, name, score: newScore });
 }
 
 function getOrderScore(item) {
@@ -2501,51 +2106,95 @@ window.setTab = function(tab) {
 // ITEM ACTIONS
 // ════════════════════════════════════════════════════════════════════════════
 
-function genId() { return Date.now() + Math.floor(Math.random() * 100000); }
-
-// UUID for client-generated stable IDs (bug fix: prevents ID collision after sync)
-function genUuid() {
-  if (crypto && crypto.randomUUID) return crypto.randomUUID();
-  // Fallback
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-}
-
-// Resolve a local row by client_uuid first, then by id (handles post-sync renumbering)
-function resolveCurrentItem(idOrUuid) {
-  return state.current.find(c => c.client_uuid === idOrUuid)
-      || state.current.find(c => String(c.id) === String(idOrUuid));
-}
-function resolveMasterItem(idOrUuid) {
-  return state.master.find(m => m.client_uuid === idOrUuid)
-      || state.master.find(m => String(m.id) === String(idOrUuid));
-}
-
-// Get the right match key for queued operations - prefer client_uuid (stable)
-// over server-assigned id (can change after first sync)
-function matchBy(row) {
-  if (row && row.client_uuid) return { client_uuid: row.client_uuid };
-  return { id: row.id };
-}
+// Simple resolvers — server ids only
+function resolveCurrentItem(id) { return state.current.find(c => c.id === id); }
+function resolveMasterItem(id)  { return state.master.find(m => m.id === id); }
 
 async function findOrCreateMaster(name) {
   let m = state.master.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (m) return m;
-  const uuid = genUuid();
-  const newItem = {
-    id: genId(), client_uuid: uuid, name, category: categorize(name),
+  // Optimistic local row with temp id; replaced by real id on insert success
+  const tempId = -Date.now(); // negative to avoid collisions with real ids
+  const tempRow = {
+    id: tempId, name, category: categorize(name),
     notes: null, est_price: null, image_url: null,
     default_qty: 1, aisle_override: null, last_low_flagged_at: null, sort_order: null,
     is_staple: false, times_bought: 0, last_bought_at: null,
     added_at: new Date().toISOString(),
   };
-  state.master.push(newItem);
-  await dbPut('master_items', newItem);
-  const { id, ...payload } = newItem;
-  await enqueue({ op: 'insert', table: 'master_items', payload });
-  return newItem;
+  state.master.push(tempRow);
+  scheduleRender();
+
+  const { id, ...payload } = tempRow;
+  const real = await sbInsert('master_items', payload);
+  if (real) {
+    // Replace temp row with real row
+    const idx = state.master.findIndex(r => r.id === tempId);
+    if (idx >= 0) {
+      state.master[idx] = real;
+      markRecentlyInserted('master_items', real.id);
+      await dbPut('master_items', real);
+    }
+    scheduleRender();
+    return real;
+  }
+  // Insert failed — roll back
+  state.master = state.master.filter(r => r.id !== tempId);
+  scheduleRender();
+  return null;
+}
+
+// Adds a master item to the current trip, or increments its quantity if already there.
+// Uses optimistic UI + retry-once-then-toast under the hood.
+async function addOrIncrementOnTrip(master, qtyOverride) {
+  if (!master) return null;
+  const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
+  if (existing) {
+    const newQty = existing.quantity + 1;
+    existing.quantity = newQty; // optimistic
+    scheduleRender();
+    await dbPut('current_list', existing);
+    const ok = await sbUpdate('current_list', existing.id, { quantity: newQty });
+    if (!ok) {
+      existing.quantity = newQty - 1; // rollback
+      scheduleRender();
+    }
+    return existing;
+  }
+  // Not on list — insert new row with temp id
+  const qty = qtyOverride != null ? qtyOverride : predictQty(master.id);
+  const tempId = -Date.now() - Math.floor(Math.random() * 1000);
+  const tempRow = {
+    id: tempId,
+    master_item_id: master.id,
+    name: master.name,
+    quantity: qty,
+    need_more: false,
+    collected_at: null,
+    added_at: new Date().toISOString(),
+  };
+  state.current.push(tempRow); // optimistic
+  scheduleRender();
+  await dbPut('current_list', tempRow);
+
+  const { id, ...payload } = tempRow;
+  const real = await sbInsert('current_list', payload);
+  if (real) {
+    const idx = state.current.findIndex(r => r.id === tempId);
+    if (idx >= 0) {
+      state.current[idx] = real;
+      markRecentlyInserted('current_list', real.id);
+      try { await dbDelete('current_list', tempId); } catch (e) {}
+      await dbPut('current_list', real);
+    }
+    scheduleRender();
+    return real;
+  }
+  // Roll back
+  state.current = state.current.filter(r => r.id !== tempId);
+  try { await dbDelete('current_list', tempId); } catch (e) {}
+  scheduleRender();
+  return null;
 }
 
 window.addItem = async function() {
@@ -2574,35 +2223,18 @@ window.addItem = async function() {
         masterSkipped++;
         continue;
       }
-      await findOrCreateMaster(name);
-      masterAdded++;
+      const created = await findOrCreateMaster(name);
+      if (created) masterAdded++;
     } else {
       const master = await findOrCreateMaster(name);
-      const existing = state.current.find(c => c.name.toLowerCase() === master.name.toLowerCase() && !c.collected_at);
-      if (existing) {
-        existing.quantity += 1;
-        await dbPut('current_list', existing);
-        await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
-      } else {
-        const qty = predictQty(master.id);
-        const newRow = {
-          id: genId(), client_uuid: genUuid(),
-          master_item_id: master.id,
-          name: master.name,
-          quantity: qty, need_more: false, collected_at: null,
-          added_at: new Date().toISOString(),
-        };
-        state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-        await dbPut('current_list', newRow);
-        const { id, ...payload } = newRow;
-        await enqueue({ op: 'insert', table: 'current_list', payload });
+      if (master) {
+        await addOrIncrementOnTrip(master);
+        tripAdded++;
       }
-      tripAdded++;
     }
   }
   render();
   input.focus();
-  // Bug 3 fix: confirmation toast for master-list adds
   if (currentView === 'master') {
     if (masterAdded > 0 && masterSkipped === 0)      showToast(`✓ added ${masterAdded} to master`);
     else if (masterAdded > 0 && masterSkipped > 0)   showToast(`✓ added ${masterAdded}, ${masterSkipped} already existed`);
@@ -2616,33 +2248,7 @@ window.addToTrip = async function(masterId) {
   const master = state.master.find(m => m.id === masterId);
   if (!master) return;
   haptic(8);
-  const existing = state.current.find(c => c.master_item_id === masterId && !c.collected_at);
-  if (existing) {
-    existing.quantity += 1;
-    await dbPut('current_list', existing);
-    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
-  } else {
-    // Bug fix: also check by name in case master IDs got reshuffled by sync
-    const byName = state.current.find(c => c.name.toLowerCase() === master.name.toLowerCase() && !c.collected_at);
-    if (byName) {
-      byName.quantity += 1;
-      await dbPut('current_list', byName);
-      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: byName.quantity }, match: matchBy(byName) });
-      render();
-      return;
-    }
-    const qty = predictQty(masterId);
-    const newRow = {
-      id: genId(), client_uuid: genUuid(), master_item_id: masterId, name: master.name,
-      quantity: qty, need_more: false, collected_at: null,
-      added_at: new Date().toISOString(),
-    };
-    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-    await dbPut('current_list', newRow);
-    const { id, ...payload } = newRow;
-    await enqueue({ op: 'insert', table: 'current_list', payload });
-  }
-  render();
+  await addOrIncrementOnTrip(master);
 };
 
 window.adjustQty = async function(currentId, delta) {
@@ -2651,10 +2257,15 @@ window.adjustQty = async function(currentId, delta) {
   const newQty = Math.max(1, item.quantity + delta);
   if (newQty === item.quantity) return;
   haptic(5);
+  const oldQty = item.quantity;
   item.quantity = newQty;
+  scheduleRender();
   await dbPut('current_list', item);
-  await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: matchBy(item) });
-  render();
+  const ok = await sbUpdate('current_list', item.id, { quantity: newQty });
+  if (!ok) {
+    item.quantity = oldQty;
+    scheduleRender();
+  }
 };
 
 window.adjustMasterQty = async function(masterId, delta) {
@@ -2664,31 +2275,59 @@ window.adjustMasterQty = async function(masterId, delta) {
   haptic(5);
   const newQty = onList.quantity + delta;
   if (newQty <= 0) {
+    // Optimistic remove
+    const idx = state.current.findIndex(c => c.id === onList.id);
     state.current = state.current.filter(c => c.id !== onList.id);
+    scheduleRender();
     await dbDelete('current_list', onList.id);
-    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(onList) });
+    const ok = await sbDelete('current_list', onList.id);
+    if (!ok && idx >= 0) {
+      state.current.splice(idx, 0, onList);
+      await dbPut('current_list', onList);
+      scheduleRender();
+    }
   } else {
+    const oldQty = onList.quantity;
     onList.quantity = newQty;
+    scheduleRender();
     await dbPut('current_list', onList);
-    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: newQty }, match: matchBy(onList) });
+    const ok = await sbUpdate('current_list', onList.id, { quantity: newQty });
+    if (!ok) {
+      onList.quantity = oldQty;
+      scheduleRender();
+    }
   }
-  render();
 };
 
 window.toggleCollected = async function(id) {
   const item = state.current.find(i => i.id === id);
   if (!item) return;
   haptic(15);
+  const oldCollected = item.collected_at;
+  const oldNeedMore = item.need_more;
   if (!item.collected_at) {
     item.collected_at = new Date().toISOString();
     item.need_more = false;
+    scheduleRender();
     await dbPut('current_list', item);
-    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: item.collected_at, need_more: false }, match: matchBy(item) });
+    const ok = await sbUpdate('current_list', item.id, { collected_at: item.collected_at, need_more: false });
+    if (!ok) {
+      item.collected_at = oldCollected;
+      item.need_more = oldNeedMore;
+      scheduleRender();
+      return;
+    }
     await recordCollection(item.name.toLowerCase().trim(), currentTripOrder++);
   } else {
     item.collected_at = null;
+    scheduleRender();
     await dbPut('current_list', item);
-    await enqueue({ op: 'update', table: 'current_list', payload: { collected_at: null }, match: matchBy(item) });
+    const ok = await sbUpdate('current_list', item.id, { collected_at: null });
+    if (!ok) {
+      item.collected_at = oldCollected;
+      scheduleRender();
+      return;
+    }
     currentTripOrder = Math.max(0, currentTripOrder - 1);
   }
   render();
@@ -2699,17 +2338,26 @@ window.toggleNeedMore = async function(id) {
   const item = state.current.find(i => i.id === id);
   if (!item) return;
   haptic(8);
+  const oldNeed = item.need_more;
   item.need_more = !item.need_more;
+  scheduleRender();
   await dbPut('current_list', item);
-  await enqueue({ op: 'update', table: 'current_list', payload: { need_more: item.need_more }, match: matchBy(item) });
+  const ok = await sbUpdate('current_list', item.id, { need_more: item.need_more });
+  if (!ok) {
+    item.need_more = oldNeed;
+    scheduleRender();
+    return;
+  }
 
-  // Bug 8 fix: set last_low_flagged_at when flagging, clear it when un-flagging
+  // Set last_low_flagged_at when flagging, clear it when un-flagging
   if (item.master_item_id) {
     const m = state.master.find(x => x.id === item.master_item_id);
     if (m) {
+      const oldFlag = m.last_low_flagged_at;
       m.last_low_flagged_at = item.need_more ? new Date().toISOString() : null;
       await dbPut('master_items', m);
-      await enqueue({ op: 'update', table: 'master_items', payload: { last_low_flagged_at: m.last_low_flagged_at }, match: matchBy(m) });
+      const ok2 = await sbUpdate('master_items', m.id, { last_low_flagged_at: m.last_low_flagged_at });
+      if (!ok2) m.last_low_flagged_at = oldFlag;
     }
   }
   render();
@@ -2719,10 +2367,15 @@ window.toggleStaple = async function(masterId) {
   const m = state.master.find(x => x.id === masterId);
   if (!m) return;
   haptic(8);
+  const oldStaple = m.is_staple;
   m.is_staple = !m.is_staple;
+  scheduleRender();
   await dbPut('master_items', m);
-  await enqueue({ op: 'update', table: 'master_items', payload: { is_staple: m.is_staple }, match: matchBy(m) });
-  render();
+  const ok = await sbUpdate('master_items', m.id, { is_staple: m.is_staple });
+  if (!ok) {
+    m.is_staple = oldStaple;
+    scheduleRender();
+  }
 };
 
 window.removeFromList = async function(id) {
@@ -2730,9 +2383,15 @@ window.removeFromList = async function(id) {
   if (!item) return;
   lastDeleted = { kind: 'current_list', data: { ...item } };
   state.current = state.current.filter(c => c.id !== id);
+  scheduleRender();
   await dbDelete('current_list', id);
-  await enqueue({ op: 'delete', table: 'current_list', match: matchBy(item) });
-  render();
+  const ok = await sbDelete('current_list', item.id);
+  if (!ok) {
+    state.current.push(item);
+    await dbPut('current_list', item);
+    scheduleRender();
+    return;
+  }
   haptic(15);
   showToast('removed "' + item.name + '"', true);
 };
@@ -2743,9 +2402,15 @@ window.removeFromMaster = async function(id) {
   if (!confirm('Remove "' + m.name + '" from master list?')) return;
   lastDeleted = { kind: 'master_items', data: { ...m } };
   state.master = state.master.filter(x => x.id !== id);
+  scheduleRender();
   await dbDelete('master_items', id);
-  await enqueue({ op: 'delete', table: 'master_items', match: matchBy(m) });
-  render();
+  const ok = await sbDelete('master_items', m.id);
+  if (!ok) {
+    state.master.push(m);
+    await dbPut('master_items', m);
+    scheduleRender();
+    return;
+  }
   haptic(15);
   showToast('removed "' + m.name + '"', true);
 };
@@ -2753,27 +2418,34 @@ window.removeFromMaster = async function(id) {
 window.undoDelete = async function() {
   if (!lastDeleted) return;
   const { kind, data } = lastDeleted;
+  // Re-insert with a fresh server id (we throw away the old id since it was deleted)
   const { id, ...payload } = data;
   if (kind === 'current_list') {
-    state.current.push(data);
-    await dbPut('current_list', data);
-    await enqueue({ op: 'insert', table: 'current_list', payload });
+    const real = await sbInsert('current_list', payload);
+    if (real) {
+      state.current.push(real);
+      await dbPut('current_list', real);
+    }
   } else if (kind === 'master_items') {
-    state.master.push(data);
-    await dbPut('master_items', data);
-    await enqueue({ op: 'insert', table: 'master_items', payload });
+    const real = await sbInsert('master_items', payload);
+    if (real) {
+      state.master.push(real);
+      await dbPut('master_items', real);
+    }
   } else if (kind === 'trip') {
-    state.trips.unshift(data);
-    state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
-    await dbPut('trips', data);
-    await enqueue({ op: 'insert', table: 'trips', payload });
-    // Bug 4 fix: restore times_bought that was decremented when we deleted
-    for (const i of (data.items || [])) {
-      const m = state.master.find(x => x.name === i.name);
-      if (m) {
-        m.times_bought = (m.times_bought || 0) + 1;
-        await dbPut('master_items', m);
-        await enqueue({ op: 'update', table: 'master_items', payload: { times_bought: m.times_bought }, match: matchBy(m) });
+    const real = await sbInsert('trips', payload);
+    if (real) {
+      state.trips.unshift(real);
+      state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+      await dbPut('trips', real);
+      // Restore times_bought that was decremented when trip was deleted
+      for (const i of (data.items || [])) {
+        const m = state.master.find(x => x.name === i.name);
+        if (m) {
+          m.times_bought = (m.times_bought || 0) + 1;
+          await dbPut('master_items', m);
+          await sbUpdate('master_items', m.id, { times_bought: m.times_bought });
+        }
       }
     }
   }
@@ -2789,7 +2461,7 @@ window.clearCollected = async function() {
   for (const c of collected) {
     state.current = state.current.filter(x => x.id !== c.id);
     await dbDelete('current_list', c.id);
-    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(c) });
+    await sbDelete('current_list', c.id);
   }
   render();
   showToast('cleared ' + collected.length);
@@ -2804,16 +2476,8 @@ window.addAllStaples = async function() {
   let added = 0;
   for (const m of staples) {
     if (state.current.find(c => c.master_item_id === m.id && !c.collected_at)) continue;
-    const newRow = {
-      id: genId(), client_uuid: genUuid(), master_item_id: m.id, name: m.name,
-      quantity: predictQty(m.id), need_more: false, collected_at: null,
-      added_at: new Date().toISOString(),
-    };
-    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-    await dbPut('current_list', newRow);
-    const { id, ...payload } = newRow;
-    await enqueue({ op: 'insert', table: 'current_list', payload });
-    added++;
+    const row = await addOrIncrementOnTrip(m);
+    if (row) added++;
   }
   render();
   haptic(15);
@@ -2840,16 +2504,8 @@ window.suggestNextTrip = async function() {
     const m = state.master.find(x => x.id === id);
     if (!m) continue;
     if (state.current.find(c => c.master_item_id === id && !c.collected_at)) continue;
-    const newRow = {
-      id: genId(), client_uuid: genUuid(), master_item_id: id, name: m.name,
-      quantity: predictQty(id), need_more: false, collected_at: null,
-      added_at: new Date().toISOString(),
-    };
-    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-    await dbPut('current_list', newRow);
-    const { id: _i, ...payload } = newRow;
-    await enqueue({ op: 'insert', table: 'current_list', payload });
-    added++;
+    const row = await addOrIncrementOnTrip(m);
+    if (row) added++;
   }
   render();
   haptic(20);
@@ -2889,58 +2545,54 @@ window.confirmCompleteTrip = async function() {
   });
   const totalQty = collected.reduce((s, i) => s + i.quantity, 0);
   const shop = state.shops.find(s => s.id === state.activeShopId);
-  const newTrip = {
-    id: genId(), client_uuid: genUuid(), shop_id: state.activeShopId, shop_name: shop ? shop.name : null,
+  const tripPayload = {
+    shop_id: state.activeShopId,
+    shop_name: shop ? shop.name : null,
     completed_at: new Date().toISOString(),
-    item_count: collected.length, total_qty: totalQty, total_cost: actualCost, items: tripItems,
+    item_count: collected.length,
+    total_qty: totalQty,
+    total_cost: actualCost,
+    items: tripItems,
   };
 
-  // C3 fix: apply all local changes first (state + IndexedDB) in tight order
-  // so the local view is consistent even if the user closes mid-flow.
-  // Then enqueue all server operations as a batch.
-  state.trips.unshift(newTrip);
-  await dbPut('trips', newTrip);
+  // Insert the trip on the server; only proceed if it succeeds (we don't want
+  // local state to remove items if the trip didn't actually save).
+  const realTrip = await sbInsert('trips', tripPayload);
+  if (!realTrip) {
+    showToast("couldn't save trip — try again");
+    return;
+  }
+
+  // Trip saved — now apply local cleanup + per-item updates
+  state.trips.unshift(realTrip);
+  await dbPut('trips', realTrip);
 
   const collectedIds = new Set(collected.map(c => c.id));
   state.current = state.current.filter(x => !collectedIds.has(x.id));
+
+  // Delete collected items from server + local DB
   for (const c of collected) {
     try { await dbDelete('current_list', c.id); } catch (e) {}
+    await sbDelete('current_list', c.id); // fire-and-forget on failure; we have the trip
   }
 
-  // Update master items locally
-  const masterUpdates = [];
+  // Update master items
   for (const c of collected) {
     if (!c.master_item_id) continue;
     const master = state.master.find(m => m.id === c.master_item_id);
     if (!master) continue;
     master.times_bought = (master.times_bought || 0) + 1;
-    master.last_bought_at = newTrip.completed_at;
+    master.last_bought_at = realTrip.completed_at;
     master.last_low_flagged_at = null;
-    masterUpdates.push(master);
     await dbPut('master_items', master);
-  }
-
-  currentTripOrder = 0;
-  closeTripComplete();
-  render();
-
-  // Now enqueue everything — queue is persisted to IndexedDB so it survives reload
-  const { id: tripIdLocal, ...tripPayload } = newTrip;
-  await enqueue({ op: 'insert', table: 'trips', payload: tripPayload });
-
-  for (const m of masterUpdates) {
-    await enqueue({
-      op: 'update', table: 'master_items',
-      payload: { times_bought: m.times_bought, last_bought_at: m.last_bought_at, last_low_flagged_at: null },
-      match: matchBy(m)
+    await sbUpdate('master_items', master.id, {
+      times_bought: master.times_bought,
+      last_bought_at: master.last_bought_at,
+      last_low_flagged_at: null,
     });
   }
 
-  for (const c of collected) {
-    await enqueue({ op: 'delete', table: 'current_list', match: matchBy(c) });
-  }
-
-  // M13 fix: clear out-of-stock flags for items bought from this shop
+  // Clear out-of-stock flags for items bought from this shop
   const shopId = state.activeShopId;
   if (shopId) {
     for (const c of collected) {
@@ -2950,11 +2602,14 @@ window.confirmCompleteTrip = async function() {
       if (oos) {
         state.outOfStock = state.outOfStock.filter(o => o.id !== oos.id);
         try { await dbDelete('out_of_stock', oos.id); } catch (e) {}
-        await enqueue({ op: 'delete', table: 'out_of_stock', match: matchBy(oos) });
+        await sbDelete('out_of_stock', oos.id);
       }
     }
   }
 
+  currentTripOrder = 0;
+  closeTripComplete();
+  render();
   showToast('trip saved');
 };
 
@@ -2966,15 +2621,23 @@ window.deleteTrip = async function(id) {
   if (!confirm('Delete this trip?')) return;
   lastDeleted = { kind: 'trip', data: { ...trip } };
   state.trips = state.trips.filter(t => t.id !== id);
+  scheduleRender();
   await dbDelete('trips', id);
-  await enqueue({ op: 'delete', table: 'trips', match: matchBy(trip) });
+  const ok = await sbDelete('trips', id);
+  if (!ok) {
+    state.trips.unshift(trip);
+    state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+    await dbPut('trips', trip);
+    scheduleRender();
+    return;
+  }
   // Decrement times_bought on master items mentioned in this trip
   for (const i of (trip.items || [])) {
     const m = state.master.find(x => x.name === i.name);
     if (m && m.times_bought > 0) {
       m.times_bought -= 1;
       await dbPut('master_items', m);
-      await enqueue({ op: 'update', table: 'master_items', payload: { times_bought: m.times_bought }, match: matchBy(m) });
+      await sbUpdate('master_items', m.id, { times_bought: m.times_bought });
     }
   }
   render();
@@ -3045,9 +2708,17 @@ window.saveEdit = async function() {
   const is_staple = document.getElementById('editStaple').checked;
 
   const updates = { name, category, est_price, notes, default_qty, aisle_override, image_url, is_staple };
+  const old = { name: m.name, category: m.category, est_price: m.est_price, notes: m.notes, default_qty: m.default_qty, aisle_override: m.aisle_override, image_url: m.image_url, is_staple: m.is_staple };
   Object.assign(m, updates);
+  scheduleRender();
   await dbPut('master_items', m);
-  await enqueue({ op: 'update', table: 'master_items', payload: updates, match: matchBy(m) });
+  const ok = await sbUpdate('master_items', m.id, updates);
+  if (!ok) {
+    Object.assign(m, old);
+    await dbPut('master_items', m);
+    scheduleRender();
+    return;
+  }
 
   // M13: out-of-stock toggle
   const wantOOS = document.getElementById('editOOS').checked;
@@ -3055,19 +2726,20 @@ window.saveEdit = async function() {
     o.master_item_id === m.id && o.shop_id === state.activeShopId
   );
   if (wantOOS && !existingOOS && state.activeShopId) {
-    const newOOS = {
-      id: genId(), client_uuid: genUuid(),
-      master_item_id: m.id, shop_id: state.activeShopId,
+    const oosPayload = {
+      master_item_id: m.id,
+      shop_id: state.activeShopId,
       flagged_at: new Date().toISOString(),
     };
-    state.outOfStock.push(newOOS);
-    await dbPut('out_of_stock', newOOS);
-    const { id, ...payload } = newOOS;
-    await enqueue({ op: 'insert', table: 'out_of_stock', payload });
+    const real = await sbInsert('out_of_stock', oosPayload);
+    if (real) {
+      state.outOfStock.push(real);
+      await dbPut('out_of_stock', real);
+    }
   } else if (!wantOOS && existingOOS) {
     state.outOfStock = state.outOfStock.filter(o => o.id !== existingOOS.id);
     await dbDelete('out_of_stock', existingOOS.id);
-    await enqueue({ op: 'delete', table: 'out_of_stock', match: matchBy(existingOOS) });
+    await sbDelete('out_of_stock', existingOOS.id);
   }
 
   // Update name in current list rows + record price history if price changed
@@ -3075,7 +2747,7 @@ window.saveEdit = async function() {
     if (c.name !== name) {
       c.name = name;
       await dbPut('current_list', c);
-      await enqueue({ op: 'update', table: 'current_list', payload: { name }, match: matchBy(c) });
+      await sbUpdate('current_list', c.id, { name });
     }
   }
 
@@ -3083,11 +2755,17 @@ window.saveEdit = async function() {
   if (est_price != null && state.activeShopId) {
     const recent = state.priceHistory.find(p => p.master_item_id === editingItemId && p.shop_id === state.activeShopId);
     if (!recent || Math.abs(recent.price - est_price) > 0.01) {
-      const ph = { id: genId(), client_uuid: genUuid(), master_item_id: editingItemId, shop_id: state.activeShopId, price: est_price, recorded_at: new Date().toISOString() };
-      state.priceHistory.push(ph);
-      await dbPut('price_history', ph);
-      const { id: _i, ...phPayload } = ph;
-      await enqueue({ op: 'insert', table: 'price_history', payload: phPayload });
+      const phPayload = {
+        master_item_id: editingItemId,
+        shop_id: state.activeShopId,
+        price: est_price,
+        recorded_at: new Date().toISOString(),
+      };
+      const real = await sbInsert('price_history', phPayload);
+      if (real) {
+        state.priceHistory.push(real);
+        await dbPut('price_history', real);
+      }
     }
   }
 
@@ -3108,7 +2786,7 @@ window.deleteFromEdit = async function() {
 window.setActiveShop = async function(shopId) {
   state.activeShopId = Number(shopId);
   await dbPut('app_state', { key: 'active_shop_id', value: String(shopId) });
-  await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(shopId) } });
+  await sbUpsert('app_state', { key: 'active_shop_id', value: String(shopId) });
   render();
 };
 
@@ -3128,11 +2806,11 @@ function renderShopList() {
 window.addShop = async function() {
   const name = document.getElementById('newShopName').value.trim();
   if (!name) return;
-  const newShop = { id: genId(), client_uuid: genUuid(), name, is_default: false, created_at: new Date().toISOString() };
-  state.shops.push(newShop);
-  await dbPut('shops', newShop);
-  const { id, ...payload } = newShop;
-  await enqueue({ op: 'insert', table: 'shops', payload });
+  const payload = { name, is_default: false, created_at: new Date().toISOString() };
+  const real = await sbInsert('shops', payload);
+  if (!real) return;
+  state.shops.push(real);
+  await dbPut('shops', real);
   document.getElementById('newShopName').value = '';
   renderShopList();
   render();
@@ -3144,12 +2822,19 @@ window.deleteShop = async function(id) {
   if (!shop) return;
   if (!confirm('Delete this shop and its learned route?')) return;
   state.shops = state.shops.filter(s => s.id !== id);
+  scheduleRender();
   await dbDelete('shops', id);
-  await enqueue({ op: 'delete', table: 'shops', match: matchBy(shop) });
+  const ok = await sbDelete('shops', id);
+  if (!ok) {
+    state.shops.push(shop);
+    await dbPut('shops', shop);
+    scheduleRender();
+    return;
+  }
   if (state.activeShopId === id) {
     state.activeShopId = state.shops[0].id;
     await dbPut('app_state', { key: 'active_shop_id', value: String(state.activeShopId) });
-    await enqueue({ op: 'upsert', table: 'app_state', payload: { key: 'active_shop_id', value: String(state.activeShopId) } });
+    await sbUpsert('app_state', { key: 'active_shop_id', value: String(state.activeShopId) });
   }
   renderShopList();
   render();
@@ -3182,14 +2867,15 @@ window.addCategory = async function() {
   if (!label) return;
   const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_');
   if (state.categories.find(c => c.key === key)) { showToast('already exists'); return; }
-  const newCat = {
-    id: genId(), client_uuid: genUuid(), key, label, icon, is_builtin: false,
-    sort_order: 200 + state.categories.length, created_at: new Date().toISOString()
+  const payload = {
+    key, label, icon, is_builtin: false,
+    sort_order: 200 + state.categories.length,
+    created_at: new Date().toISOString(),
   };
-  state.categories.push(newCat);
-  await dbPut('categories', newCat);
-  const { id, ...payload } = newCat;
-  await enqueue({ op: 'insert', table: 'categories', payload });
+  const real = await sbInsert('categories', payload);
+  if (!real) return;
+  state.categories.push(real);
+  await dbPut('categories', real);
   document.getElementById('newCatLabel').value = '';
   document.getElementById('newCatIcon').value = '';
   populateCategorySelect();
@@ -3202,8 +2888,15 @@ window.deleteCategory = async function(id) {
   if (!c) return;
   if (!confirm('Delete category "' + c.label + '"? Items will become uncategorised.')) return;
   state.categories = state.categories.filter(x => x.id !== id);
+  scheduleRender();
   await dbDelete('categories', id);
-  await enqueue({ op: 'delete', table: 'categories', match: matchBy(c) });
+  const ok = await sbDelete('categories', id);
+  if (!ok) {
+    state.categories.push(c);
+    await dbPut('categories', c);
+    scheduleRender();
+    return;
+  }
   populateCategorySelect();
   renderCategoriesList();
   render();
@@ -3214,8 +2907,7 @@ window.deleteCategory = async function(id) {
 // ════════════════════════════════════════════════════════════════════════════
 
 window.openSettings = function() {
-  updateQueueBadge();
-  document.getElementById('netStatus').textContent = navigator.onLine ? 'online' : 'offline (queued)';
+  document.getElementById('netStatus').textContent = navigator.onLine ? 'online' : 'offline';
   document.getElementById('settingsModal').classList.add('show');
 };
 window.closeSettings = function() { document.getElementById('settingsModal').classList.remove('show'); };
@@ -3401,7 +3093,7 @@ listWrap.addEventListener('touchend', async e => {
         if (item.sort_order !== newOrder) {
           item.sort_order = newOrder;
           await dbPut('master_items', item);
-          await enqueue({ op: 'update', table: 'master_items', payload: { sort_order: newOrder }, match: matchBy(item) });
+          await sbUpdate('master_items', item.id, { sort_order: newOrder });
         }
       }
       haptic(15);
@@ -3465,7 +3157,6 @@ listWrap.addEventListener('touchend', async () => {
     ind.style.transform = 'translateX(-50%) translateY(20px)';
     setSyncStatus('syncing');
     try {
-      await flushQueue();
       await loadAllFromCloud();
       setSyncStatus('connected');
     } catch (e) {
@@ -3614,27 +3305,13 @@ window.confirmBarcodeAdd = async function() {
   if (!name) { showToast('name required'); return; }
   const imageUrl = _pendingBarcode?.imageUrl;
   const master = await findOrCreateMaster(name);
+  if (!master) return;
   if (imageUrl && !master.image_url) {
     master.image_url = imageUrl;
     await dbPut('master_items', master);
-    await enqueue({ op: 'update', table: 'master_items', payload: { image_url: imageUrl }, match: matchBy(master) });
+    await sbUpdate('master_items', master.id, { image_url: imageUrl });
   }
-  const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
-  if (existing) {
-    existing.quantity += 1;
-    await dbPut('current_list', existing);
-    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
-  } else {
-    const newRow = {
-      id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
-      quantity: predictQty(master.id), need_more: false, collected_at: null,
-      added_at: new Date().toISOString(),
-    };
-    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-    await dbPut('current_list', newRow);
-    const { id, ...payload } = newRow;
-    await enqueue({ op: 'insert', table: 'current_list', payload });
-  }
+  await addOrIncrementOnTrip(master);
   document.getElementById('barcodeConfirm').classList.remove('show');
   _pendingBarcode = null;
   render();
@@ -3708,23 +3385,9 @@ window.importRecipe = async function() {
   let added = 0;
   for (const it of selected) {
     const master = await findOrCreateMaster(it.name);
-    const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
-    if (existing) {
-      existing.quantity += 1;
-      await dbPut('current_list', existing);
-      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
-    } else {
-      const newRow = {
-        id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
-        quantity: 1, need_more: false, collected_at: null,
-        added_at: new Date().toISOString(),
-      };
-      state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-      await dbPut('current_list', newRow);
-      const { id, ...payload } = newRow;
-      await enqueue({ op: 'insert', table: 'current_list', payload });
-    }
-    added++;
+    if (!master) continue;
+    const row = await addOrIncrementOnTrip(master, 1);
+    if (row) added++;
   }
   closeRecipeImport();
   render();
@@ -4041,7 +3704,7 @@ function tripItemHTML(item) {
     : (cat ? `<div class="item-thumb">${cat.icon}</div>` : '');
 
   return `
-    <div class="item${item.collected_at ? ' collected' : ''}${isLowFlagged ? ' low-flagged' : ''}${recentlyAdded.has(item.client_uuid) ? ' flash-new' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
+    <div class="item${item.collected_at ? ' collected' : ''}${isLowFlagged ? ' low-flagged' : ''}${isRecentlyAddedCurrent(item.id) ? ' flash-new' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
       <div class="check-box"><span class="check-icon">✓</span></div>
       ${thumb}
       <div class="item-body">
@@ -4374,31 +4037,16 @@ window.addMealIngredientToTrip = async function(ingId) {
   const ing = state.mealIngredients.find(i => i.id === ingId);
   if (!ing) return;
   haptic(8);
-  // Ensure master exists (it should but be safe)
   let master = state.master.find(m => m.id === ing.master_item_id);
   if (!master) {
     master = await findOrCreateMaster(ing.name);
+    if (!master) return;
     // Patch the meal_ingredient row with the new master_item_id
     ing.master_item_id = master.id;
     await dbPut('meal_ingredients', ing);
-    await enqueue({ op: 'update', table: 'meal_ingredients', payload: { master_item_id: master.id }, match: matchBy(ing) });
+    await sbUpdate('meal_ingredients', ing.id, { master_item_id: master.id });
   }
-  const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
-  if (existing) {
-    existing.quantity += 1;
-    await dbPut('current_list', existing);
-    await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
-  } else {
-    const newRow = {
-      id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
-      quantity: 1, need_more: false, collected_at: null,
-      added_at: new Date().toISOString(),
-    };
-    state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-    await dbPut('current_list', newRow);
-    const { id, ...payload } = newRow;
-    await enqueue({ op: 'insert', table: 'current_list', payload });
-  }
+  await addOrIncrementOnTrip(master, 1);
   render();
   showToast(`✓ ${ing.name}`);
 };
@@ -4412,23 +4060,9 @@ window.addAllMealIngredients = async function(mealId) {
   for (const ing of ings) {
     let master = state.master.find(m => m.id === ing.master_item_id);
     if (!master) master = await findOrCreateMaster(ing.name);
-    const existing = state.current.find(c => c.master_item_id === master.id && !c.collected_at);
-    if (existing) {
-      existing.quantity += 1;
-      await dbPut('current_list', existing);
-      await enqueue({ op: 'update', table: 'current_list', payload: { quantity: existing.quantity }, match: matchBy(existing) });
-    } else {
-      const newRow = {
-        id: genId(), client_uuid: genUuid(), master_item_id: master.id, name: master.name,
-        quantity: 1, need_more: false, collected_at: null,
-        added_at: new Date().toISOString(),
-      };
-      state.current.push(newRow); markRecentlyAdded(newRow.client_uuid);
-      await dbPut('current_list', newRow);
-      const { id, ...payload } = newRow;
-      await enqueue({ op: 'insert', table: 'current_list', payload });
-    }
-    added++;
+    if (!master) continue;
+    const row = await addOrIncrementOnTrip(master, 1);
+    if (row) added++;
   }
   render();
   showToast(`added ${added} from meal`);
@@ -4442,17 +4076,14 @@ window.createMeal = async function(name) {
     showToast('meal already exists');
     return null;
   }
-  const newMeal = {
-    id: genId(), client_uuid: genUuid(),
-    name, notes: null, created_at: new Date().toISOString(),
-  };
-  state.meals.push(newMeal);
-  await dbPut('meals', newMeal);
-  const { id, ...payload } = newMeal;
-  await enqueue({ op: 'insert', table: 'meals', payload });
+  const payload = { name, notes: null, created_at: new Date().toISOString() };
+  const real = await sbInsert('meals', payload);
+  if (!real) return null;
+  state.meals.push(real);
+  await dbPut('meals', real);
   // Auto-open edit modal so user can immediately add ingredients
-  openMealEdit(newMeal.id);
-  return newMeal;
+  openMealEdit(real.id);
+  return real;
 };
 
 // ----- MEAL EDIT MODAL -----
@@ -4527,7 +4158,7 @@ window.addMealIngredientFromInput = async function() {
   input.value = '';
   // Find or create master
   const master = await findOrCreateMaster(name);
-  await _addIngredientToMeal(editingMealId, master);
+  if (master) await _addIngredientToMeal(editingMealId, master);
 };
 
 async function _addIngredientToMeal(mealId, master) {
@@ -4537,15 +4168,16 @@ async function _addIngredientToMeal(mealId, master) {
   const nextSortOrder = (state.mealIngredients
     .filter(i => i.meal_id === mealId)
     .reduce((max, i) => Math.max(max, i.sort_order || 0), 0)) + 10;
-  const newIng = {
-    id: genId(), client_uuid: genUuid(),
-    meal_id: mealId, master_item_id: master.id,
-    name: master.name, sort_order: nextSortOrder,
+  const payload = {
+    meal_id: mealId,
+    master_item_id: master.id,
+    name: master.name,
+    sort_order: nextSortOrder,
   };
-  state.mealIngredients.push(newIng);
-  await dbPut('meal_ingredients', newIng);
-  const { id, ...payload } = newIng;
-  await enqueue({ op: 'insert', table: 'meal_ingredients', payload });
+  const real = await sbInsert('meal_ingredients', payload);
+  if (!real) return;
+  state.mealIngredients.push(real);
+  await dbPut('meal_ingredients', real);
   renderMealEditIngredients();
   populateMealMasterPicker();
   haptic(5);
@@ -4555,8 +4187,14 @@ window.removeMealIngredient = async function(ingId) {
   const ing = state.mealIngredients.find(i => i.id === ingId);
   if (!ing) return;
   state.mealIngredients = state.mealIngredients.filter(i => i.id !== ingId);
+  scheduleRender();
   await dbDelete('meal_ingredients', ingId);
-  await enqueue({ op: 'delete', table: 'meal_ingredients', match: matchBy(ing) });
+  const ok = await sbDelete('meal_ingredients', ingId);
+  if (!ok) {
+    state.mealIngredients.push(ing);
+    await dbPut('meal_ingredients', ing);
+    scheduleRender();
+  }
   renderMealEditIngredients();
   populateMealMasterPicker();
   haptic(8);
@@ -4568,9 +4206,16 @@ window.saveMealName = async function() {
   const name = document.getElementById('mealEditName').value.trim();
   if (!name) { showToast('name required'); return; }
   if (name === meal.name) { closeMealEdit(); render(); return; }
+  const oldName = meal.name;
   meal.name = name;
+  scheduleRender();
   await dbPut('meals', meal);
-  await enqueue({ op: 'update', table: 'meals', payload: { name }, match: matchBy(meal) });
+  const ok = await sbUpdate('meals', meal.id, { name });
+  if (!ok) {
+    meal.name = oldName;
+    scheduleRender();
+    return;
+  }
   closeMealEdit();
   render();
   showToast('saved');
@@ -4580,15 +4225,24 @@ window.deleteMeal = async function() {
   const meal = state.meals.find(m => m.id === editingMealId);
   if (!meal) return;
   if (!confirm(`Delete meal "${meal.name}"?`)) return;
-  // Server cascade will delete ingredients, but clean local state too
   const ings = state.mealIngredients.filter(i => i.meal_id === meal.id);
   state.meals = state.meals.filter(m => m.id !== meal.id);
   state.mealIngredients = state.mealIngredients.filter(i => i.meal_id !== meal.id);
+  scheduleRender();
   await dbDelete('meals', meal.id);
   for (const ing of ings) {
     try { await dbDelete('meal_ingredients', ing.id); } catch (e) {}
   }
-  await enqueue({ op: 'delete', table: 'meals', match: matchBy(meal) });
+  const ok = await sbDelete('meals', meal.id);
+  if (!ok) {
+    // Roll back local state
+    state.meals.push(meal);
+    state.mealIngredients.push(...ings);
+    await dbPut('meals', meal);
+    for (const ing of ings) await dbPut('meal_ingredients', ing);
+    scheduleRender();
+    return;
+  }
   closeMealEdit();
   render();
   haptic(15);
