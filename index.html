@@ -456,6 +456,17 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   font-size: 13px; color: var(--text);
 }
 
+/* Confirmation modal */
+.confirm-card { max-width: 360px; }
+.confirm-message {
+  margin: 0 0 18px; font-size: 14px; line-height: 1.5;
+  color: var(--text); white-space: pre-wrap; word-wrap: break-word;
+}
+.modal-btn.danger-strong {
+  background: var(--danger); color: #fff; border-color: var(--danger);
+}
+.modal-btn.danger-strong:active { opacity: 0.85; }
+
 /* Ingredient typeahead (combined search-or-add) */
 .ing-typeahead { position: relative; width: 100%; }
 .ing-typeahead input {
@@ -808,7 +819,19 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.18</div>
+<!-- Confirmation modal -->
+<div class="modal-bg" id="confirmModal" onclick="if(event.target===this)confirmModalChoose(false)">
+  <div class="modal-card confirm-card">
+    <h2 id="confirmTitle">Confirm</h2>
+    <p id="confirmMessage" class="confirm-message"></p>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="confirmModalChoose(false)" id="confirmCancelBtn">Cancel</button>
+      <button class="modal-btn primary" onclick="confirmModalChoose(true)" id="confirmOkBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="version-footer">v5.19</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -956,7 +979,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
     <h2>Settings</h2>
     <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.18</span></p>
+    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.19</span></p>
     <div class="modal-btn-row" style="flex-direction:column;gap:8px">
       <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
@@ -1444,8 +1467,8 @@ window.connect = async function() {
   }
 };
 
-window.disconnect = function() {
-  if (!confirm('Disconnect? Data stays in Supabase; local cache will be cleared.')) return;
+window.disconnect = async function() {
+  if (!await confirmModal('Disconnect? Data stays in Supabase; local cache will be cleared.', { okText: 'Disconnect', danger: true })) return;
   localStorage.removeItem('trolley_url');
   localStorage.removeItem('trolley_key');
   localStorage.removeItem('trolley_tour_done');
@@ -1454,7 +1477,7 @@ window.disconnect = function() {
 };
 
 window.clearLocalCache = async function() {
-  if (!confirm('Clear local cache and reload from server?')) return;
+  if (!await confirmModal('Clear local cache and reload from server?', { okText: 'Clear' })) return;
   for (const s of ['shops','master_items','current_list','trips','order_map','app_state','categories','price_history','meals','meal_ingredients','out_of_stock']) {
     try { await dbClear(s); } catch (e) {}
   }
@@ -1827,7 +1850,7 @@ window.exportData = async function() {
 window.importData = async function(e) {
   const file = e.target.files[0];
   if (!file) return;
-  if (!confirm('Import data from backup? This will add items to your existing data — duplicates will be skipped by name.')) {
+  if (!await confirmModal('Import data from backup? This will add items to your existing data — duplicates will be skipped by name.', { okText: 'Import' })) {
     e.target.value = '';
     return;
   }
@@ -2437,7 +2460,7 @@ window.removeFromList = async function(id) {
 window.removeFromMaster = async function(id) {
   const m = state.master.find(x => x.id === id);
   if (!m) return;
-  if (!confirm('Remove "' + m.name + '" from master list?')) return;
+  if (!await confirmModal('Remove "' + m.name + '" from master list?', { okText: 'Delete', danger: true })) return;
   lastDeleted = { kind: 'master_items', data: { ...m } };
   state.master = state.master.filter(x => x.id !== id);
   scheduleRender();
@@ -2656,7 +2679,7 @@ window.closeTripComplete = function() { document.getElementById('tripComplete').
 window.deleteTrip = async function(id) {
   const trip = state.trips.find(t => t.id === id);
   if (!trip) return;
-  if (!confirm('Delete this trip?')) return;
+  if (!await confirmModal('Delete this trip?', { okText: 'Delete', danger: true })) return;
   lastDeleted = { kind: 'trip', data: { ...trip } };
   state.trips = state.trips.filter(t => t.id !== id);
   scheduleRender();
@@ -2858,7 +2881,7 @@ window.deleteShop = async function(id) {
   if (state.shops.length <= 1) { showToast('keep at least one shop'); return; }
   const shop = state.shops.find(s => s.id === id);
   if (!shop) return;
-  if (!confirm('Delete this shop and its learned route?')) return;
+  if (!await confirmModal('Delete this shop and its learned route?', { okText: 'Delete', danger: true })) return;
   state.shops = state.shops.filter(s => s.id !== id);
   scheduleRender();
   await dbDelete('shops', id);
@@ -2924,7 +2947,7 @@ window.addCategory = async function() {
 window.deleteCategory = async function(id) {
   const c = state.categories.find(x => x.id === id);
   if (!c) return;
-  if (!confirm('Delete category "' + c.label + '"? Items will become uncategorised.')) return;
+  if (!await confirmModal('Delete category "' + c.label + '"? Items will become uncategorised.', { okText: 'Delete', danger: true })) return;
   state.categories = state.categories.filter(x => x.id !== id);
   scheduleRender();
   await dbDelete('categories', id);
@@ -4330,7 +4353,7 @@ window.saveMealName = async function() {
 window.deleteMeal = async function() {
   const meal = state.meals.find(m => m.id === editingMealId);
   if (!meal) return;
-  if (!confirm(`Delete meal "${meal.name}"?`)) return;
+  if (!await confirmModal(`Delete meal "${meal.name}"?`, { okText: 'Delete', danger: true })) return;
   const ings = state.mealIngredients.filter(i => i.meal_id === meal.id);
   state.meals = state.meals.filter(m => m.id !== meal.id);
   state.mealIngredients = state.mealIngredients.filter(i => i.meal_id !== meal.id);
@@ -4368,6 +4391,47 @@ function showToast(msg, withUndo = false) {
   undoTimer = setTimeout(() => { t.classList.remove('show'); lastDeleted = null; }, withUndo ? 5000 : 2200);
 }
 window.showToast = showToast;
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONFIRM MODAL — Promise-based replacement for window.confirm()
+// ════════════════════════════════════════════════════════════════════════════
+let _confirmResolve = null;
+let _confirmEscHandler = null;
+
+function confirmModal(message, opts = {}) {
+  return new Promise(resolve => {
+    // If another confirm is already open, dismiss it first
+    if (_confirmResolve) {
+      try { _confirmResolve(false); } catch (e) {}
+    }
+    _confirmResolve = resolve;
+    document.getElementById('confirmTitle').textContent = opts.title || 'Confirm';
+    document.getElementById('confirmMessage').textContent = message;
+    const okBtn = document.getElementById('confirmOkBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    okBtn.textContent = opts.okText || 'OK';
+    cancelBtn.textContent = opts.cancelText || 'Cancel';
+    okBtn.classList.toggle('danger-strong', !!opts.danger);
+    document.getElementById('confirmModal').classList.add('show');
+    // ESC to cancel
+    _confirmEscHandler = (e) => {
+      if (e.key === 'Escape') confirmModalChoose(false);
+    };
+    document.addEventListener('keydown', _confirmEscHandler);
+  });
+}
+
+window.confirmModalChoose = function(answer) {
+  const r = _confirmResolve;
+  _confirmResolve = null;
+  document.getElementById('confirmModal').classList.remove('show');
+  if (_confirmEscHandler) {
+    document.removeEventListener('keydown', _confirmEscHandler);
+    _confirmEscHandler = null;
+  }
+  if (r) r(!!answer);
+};
+window.confirmModal = confirmModal;
 
 // ════════════════════════════════════════════════════════════════════════════
 // BOOT
