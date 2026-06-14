@@ -780,7 +780,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <button class="toast-undo" id="toastUndo" style="display:none">undo</button>
 </div>
 
-<div class="version-footer">v5.16</div>
+<div class="version-footer">v5.17</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -928,7 +928,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
     <h2>Settings</h2>
     <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.16</span></p>
+    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.17</span></p>
     <div class="modal-btn-row" style="flex-direction:column;gap:8px">
       <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
@@ -1658,6 +1658,18 @@ function showError(label, err) {
     banner.textContent = `⚠ ${label}: ${msg}`;
     banner.style.display = 'block';
   } catch (_) {}
+}
+
+// Maps a Supabase table name to its corresponding key in `state`.
+// Used by applyDelta when processing realtime broadcasts.
+function tableToStateKey(table) {
+  return ({
+    master_items: 'master', current_list: 'current',
+    shops: 'shops', trips: 'trips', categories: 'categories',
+    price_history: 'priceHistory',
+    meals: 'meals', meal_ingredients: 'mealIngredients',
+    out_of_stock: 'outOfStock',
+  })[table];
 }
 
 // Apply a realtime postgres_changes payload directly without full refetch.
