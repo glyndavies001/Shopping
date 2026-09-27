@@ -108,10 +108,6 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
    font-weight: 700; font-size: 15px;
   cursor: pointer;
 }
-.config-card button.secondary {
-  background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
-  margin-top: 8px;
-}
 .config-card button:disabled { opacity: 0.4; }
 .config-status { margin-top: 12px; font-size: 12px; text-align: center; min-height: 16px; }
 .config-status.error { color: var(--danger); }
@@ -682,13 +678,6 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 
 .row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-/* QR code container */
-.qr-container {
-  background: #fff; padding: 16px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center; margin: 12px 0;
-}
-.qr-container canvas { max-width: 100%; height: auto; }
-
 /* Install banner */
 .install-banner {
   display: none; background: rgba(74, 158, 255, 0.06);
@@ -782,12 +771,6 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   word-break: break-word; cursor: pointer;
 }
 
-/* Search hint shows total items being searched */
-.search-hint {
-  font-size: 9px; color: var(--muted); padding: 4px 14px 0; opacity: 0.6;
-  letter-spacing: 0.05em;
-}
-
 /* Custom checkbox */
 .staple-check {
   display: flex; align-items: center; gap: 12px;
@@ -845,13 +828,12 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 <div class="config-screen" id="configScreen">
   <div class="config-card">
     <h1>trolley</h1>
-    <p>Connect to your Supabase project to start syncing across devices.</p>
-    <label>Supabase URL</label>
-    <input type="text" id="cfgUrl" placeholder="https://xxxxx.supabase.co" autocomplete="off">
-    <label>Anon Key</label>
-    <input type="text" id="cfgKey" placeholder="eyJhbG..." autocomplete="off">
-    <button id="cfgConnect" onclick="connect()">connect</button>
-    <button class="secondary" onclick="scanShareQR()">📷 scan QR from partner</button>
+    <p>Sign in with your Vaulted account.</p>
+    <label>Email</label>
+    <input type="email" id="cfgEmail" autocomplete="username" placeholder="you@example.com">
+    <label>Password</label>
+    <input type="password" id="cfgPw" autocomplete="current-password" onkeydown="if(event.key==='Enter')signIn()">
+    <button id="cfgConnect" onclick="signIn()">sign in</button>
     <div class="config-status" id="cfgStatus"></div>
   </div>
 </div>
@@ -923,7 +905,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   </div>
 
   <div class="search-row" id="searchRow">
-    <input class="search-input" id="searchInput" placeholder="Search..." oninput="render()" onkeyup="render()" onchange="render()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <input class="search-input" id="searchInput" placeholder="Search..." oninput="render()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
   </div>
 
   <div class="ptr-indicator" id="ptrIndicator">
@@ -993,7 +975,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   </div>
 </div>
 
-<div class="version-footer">v5.21</div>
+<div class="version-footer">v6.0</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -1012,7 +994,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
     </div>
     <div class="modal-btn-row">
       <button class="modal-btn" onclick="closeTripComplete()">keep shopping</button>
-      <button class="modal-btn primary" onclick="confirmCompleteTrip()">save</button>
+      <button class="modal-btn primary" id="tripSaveBtn" onclick="confirmCompleteTrip()">save</button>
     </div>
   </div>
 </div>
@@ -1139,11 +1121,9 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 <div class="modal-bg" id="settingsModal">
   <div class="modal-card">
     <h2>Settings</h2>
-    <p style="margin-bottom:8px">Sync queue: <span id="queueCount">0</span> pending writes</p>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v5.21</span></p>
+    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v6.0</span></p>
     <div class="modal-btn-row" style="flex-direction:column;gap:8px">
-      <button class="modal-btn primary" onclick="showShareQR()">📱 share to partner (QR)</button>
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
       <button class="modal-btn" onclick="forceSync()">refresh from server</button>
       <button class="modal-btn" onclick="exportData()">💾 export data (JSON)</button>
@@ -1151,21 +1131,8 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
       <button class="modal-btn" onclick="restartTour()">replay tour</button>
       <button class="modal-btn" onclick="clearLocalCache()">clear local cache</button>
-      <button class="modal-btn danger" onclick="disconnect()">disconnect</button>
+      <button class="modal-btn danger" onclick="disconnect()">sign out</button>
       <button class="modal-btn" onclick="closeSettings()" style="margin-top:8px">close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Share QR -->
-<div class="modal-bg" id="shareQRModal">
-  <div class="modal-card">
-    <h2>Share to partner</h2>
-    <p>Have them open Trolley on their phone, tap "scan QR from partner", and point the camera at this code.</p>
-    <div class="qr-container" id="qrContainer"></div>
-    <p style="font-size:11px;color:var(--muted);text-align:center">Anyone with this code can access the household list. Treat it like a password.</p>
-    <div class="modal-btn-row">
-      <button class="modal-btn primary" onclick="closeShareQR()">done</button>
     </div>
   </div>
 </div>
@@ -1177,16 +1144,6 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <div class="scanner-frame"></div>
   <div class="scanner-controls">
     <button class="scanner-close" onclick="closeScanner()">cancel</button>
-  </div>
-</div>
-
-<!-- QR scanner -->
-<div class="scanner-overlay" id="qrScannerOverlay">
-  <div class="scanner-status">Point at your partner's QR code</div>
-  <video class="scanner-video" id="qrScannerVideo" autoplay playsinline muted></video>
-  <div class="scanner-frame"></div>
-  <div class="scanner-controls">
-    <button class="scanner-close" onclick="closeQRScanner()">cancel</button>
   </div>
 </div>
 
@@ -1237,11 +1194,12 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   </div>
 </div>
 
-<script type="module" src="https://esm.sh/qrcode@1.5.3"></script>
-
+<script src="./vendor/supabase.js"></script>
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import QRCode from 'https://esm.sh/qrcode@1.5.3';
+const APP_VERSION = 'v6.0';
+const SUPABASE_URL = 'https://yfbarahnwcrwewtpithb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ItUAbr04KIijWuO-JWgDNg_J5YCwaqK';
+const AUTH_KEY = 'sb-yfbarahnwcrwewtpithb-auth-token';   // where the sign-in is kept on the phone
 
 // ════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -1325,7 +1283,14 @@ function categorize(name) {
 }
 
 function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// A picture for an item, falling back to its category icon (as text, never as HTML).
+function thumbHtml(url, icon) {
+  const ic = escHtml(icon || '📦');
+  return url
+    ? `<div class="item-thumb" data-icon="${ic}"><img src="${escHtml(url)}" onerror="this.parentElement.textContent=this.parentElement.dataset.icon"></div>`
+    : `<div class="item-thumb">${ic}</div>`;
 }
 
 // H11 fix: debounce renders so realtime bursts (e.g. partner adds 20 items in
@@ -1460,10 +1425,19 @@ function dbClear(store) {
   });
 }
 
-async function dbReplaceAll(store, items) {
-  await dbClear(store);
-  for (const it of items) await dbPut(store, it);
+// Several changes to one store in a single transaction (all or nothing, and quick).
+function dbBulk(store, { clear = false, put = [], del = [] } = {}) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite'), os = tx.objectStore(store);
+    if (clear) os.clear();
+    for (const k of del) os.delete(k);
+    for (const v of put) os.put(v);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error);
+  });
 }
+const dbReplaceAll = (store, items) => dbBulk(store, { clear: true, put: items });
 
 // ════════════════════════════════════════════════════════════════════════════
 // SUPABASE WRITES — direct ops with retry-once-then-toast
@@ -1565,6 +1539,30 @@ function isRecentlyInserted(table, id) {
   const s = recentlyInsertedIds.get(table);
   return s ? s.has(id) : false;
 }
+// Adds a saved row to a list in `state`, or replaces it if the live update already brought it in.
+function putRow(key, row) {
+  const arr = state[key], i = arr.findIndex(r => r.id === row.id);
+  if (i >= 0) arr[i] = row; else arr.push(row);
+}
+// The saved row takes its temporary stand-in's place (dropping any copy the live update added).
+function swapTemp(key, tempId, real) {
+  const arr = state[key].filter(r => r.id !== real.id);
+  const i = arr.findIndex(r => r.id === tempId);
+  if (i >= 0) arr[i] = real;
+  state[key] = arr;
+  return i >= 0;
+}
+// Several master items changed at once: one request (the name rides along, as the table needs it).
+async function sbUpsertMasters(rows, fields) {
+  const payload = rows.filter(m => m.id > 0).map(m => {
+    const o = { id: m.id, name: m.name };
+    for (const f of fields) o[f] = m[f];
+    return o;
+  });
+  if (!payload.length) return true;
+  const res = await sbWrite('update master_items', () => supabase.from('master_items').upsert(payload));
+  return res !== null;
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // STATE
@@ -1587,7 +1585,7 @@ let recognition = null;
 let isListening = false;
 let scannerStream = null;
 let scannerDetector = null;
-let qrScannerStream = null;
+let started = false;   // the list is up (signed in)
 
 // M2: ids of items just inserted in last few seconds — applies a .flash-new
 // class so user sees visual confirmation. Powered by recentlyInsertedIds.
@@ -1599,41 +1597,30 @@ function isRecentlyAddedCurrent(id) {
 // CONFIG / CONNECTION
 // ════════════════════════════════════════════════════════════════════════════
 
-function getConfig() {
-  const url = localStorage.getItem('trolley_url');
-  const key = localStorage.getItem('trolley_key');
-  return (url && key) ? { url, key } : null;
-}
-
-window.connect = async function() {
-  const url = document.getElementById('cfgUrl').value.trim();
-  const key = document.getElementById('cfgKey').value.trim();
+// Signing in with a Vaulted account: the list is only readable by the household's logins.
+window.signIn = async function() {
+  const email = document.getElementById('cfgEmail').value.trim();
+  const pw = document.getElementById('cfgPw').value;
   const status = document.getElementById('cfgStatus');
   const btn = document.getElementById('cfgConnect');
-  if (!url || !key) { status.textContent = 'both fields required'; status.className = 'config-status error'; return; }
+  if (!email || !pw) { status.textContent = 'enter your email and password'; status.className = 'config-status error'; return; }
   btn.disabled = true;
-  status.textContent = 'connecting...';
-  try {
-    const client = createClient(url, key);
-    const { error } = await client.from('shops').select('id').limit(1);
-    if (error) throw error;
-    localStorage.setItem('trolley_url', url);
-    localStorage.setItem('trolley_key', key);
-    status.textContent = 'connected!';
-    status.className = 'config-status ok';
-    setTimeout(init, 300);
-  } catch (e) {
-    status.textContent = 'failed: ' + (e.message || 'check URL/key + tables');
+  status.textContent = 'signing in...';
+  status.className = 'config-status';
+  const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+  btn.disabled = false;
+  if (error) {
+    status.textContent = navigator.onLine ? error.message : "you're offline — try again with signal";
     status.className = 'config-status error';
-    btn.disabled = false;
+    return;
   }
+  status.textContent = '';
+  init();
 };
 
 window.disconnect = async function() {
-  if (!await confirmModal('Disconnect? Data stays in Supabase; local cache will be cleared.', { okText: 'Disconnect', danger: true })) return;
-  localStorage.removeItem('trolley_url');
-  localStorage.removeItem('trolley_key');
-  localStorage.removeItem('trolley_tour_done');
+  if (!await confirmModal("Sign out? The list stays saved; this phone's copy is cleared.", { okText: 'Sign out', danger: true })) return;
+  try { await supabase.auth.signOut(); } catch (e) {}
   indexedDB.deleteDatabase(DB_NAME);
   location.reload();
 };
@@ -1654,17 +1641,26 @@ window.clearLocalCache = async function() {
 // ════════════════════════════════════════════════════════════════════════════
 
 async function init() {
-  const cfg = getConfig();
-  if (!cfg) {
+  if (!supabase) {
+    localStorage.removeItem('trolley_url');   // from before signing in (a pasted key)
+    localStorage.removeItem('trolley_key');
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabase.auth.onAuthStateChange(event => { if (event === 'SIGNED_OUT' && started) location.reload(); });
+  }
+  if (started) return;
+  const { data, error } = await supabase.auth.getSession();
+  // Offline with a sign-in that needs renewing: carry on with the phone's copy; it renews once online.
+  const signedIn = !!(data && data.session) || (!!error && !!localStorage.getItem(AUTH_KEY));
+  if (!signedIn) {
     document.getElementById('configScreen').classList.remove('hidden');
     document.getElementById('app').style.display = 'none';
     return;
   }
+  started = true;
   document.getElementById('configScreen').classList.add('hidden');
   document.getElementById('app').style.display = 'flex';
 
   db = await openDB();
-  supabase = createClient(cfg.url, cfg.key);
 
   await loadAllFromLocal();
   ensureBuiltinCategories();
@@ -1718,7 +1714,7 @@ function populateCategorySelect() {
   const sel = document.getElementById('editCategory');
   const sorted = [...state.categories].sort((a,b) => a.sort_order - b.sort_order);
   sel.innerHTML = '<option value="">— uncategorised —</option>' +
-    sorted.map(c => `<option value="${c.key}">${c.icon} ${escHtml(c.label)}</option>`).join('');
+    sorted.map(c => `<option value="${escHtml(c.key)}">${escHtml(c.icon)} ${escHtml(c.label)}</option>`).join('');
 }
 
 function categoryByKey(key) {
@@ -1953,6 +1949,16 @@ async function applyAppStateDelta(payload) {
   scheduleRender();
 }
 
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (started && navigator.onLine && hiddenAt && Date.now() - hiddenAt > 30000) {
+    setSyncStatus('syncing');
+    loadAllFromCloud().then(() => setSyncStatus('connected'));
+  }
+  hiddenAt = 0;
+});
+
 function onOnline() {
   setSyncStatus('syncing');
   document.getElementById('netStatus').textContent = 'online';
@@ -1982,7 +1988,7 @@ window.forceSync = async function() {
 // S8 fix: export everything as JSON for backup / portability
 window.exportData = async function() {
   const data = {
-    version: 'v5.16',
+    version: APP_VERSION,
     exported_at: new Date().toISOString(),
     shops: state.shops,
     master_items: state.master,
@@ -2028,7 +2034,7 @@ window.importData = async function(e) {
       const { id, client_uuid, ...payload } = m;
       const real = await sbInsert('master_items', payload);
       if (real) {
-        state.master.push(real);
+        putRow('master', real);
         await dbPut('master_items', real);
         imported.master++;
       }
@@ -2043,7 +2049,7 @@ window.importData = async function(e) {
       const { id, client_uuid, ...payload } = t;
       const real = await sbInsert('trips', payload);
       if (real) {
-        state.trips.push(real);
+        putRow('trips', real);
         await dbPut('trips', real);
         imported.trips++;
       }
@@ -2055,7 +2061,7 @@ window.importData = async function(e) {
       const { id: oldMealId, client_uuid, ...payload } = meal;
       const real = await sbInsert('meals', payload);
       if (real) {
-        state.meals.push(real);
+        putRow('meals', real);
         await dbPut('meals', real);
         imported.meals++;
         // Import this meal's ingredients
@@ -2069,7 +2075,7 @@ window.importData = async function(e) {
           ingPayload.master_item_id = master.id;
           const ingReal = await sbInsert('meal_ingredients', ingPayload);
           if (ingReal) {
-            state.mealIngredients.push(ingReal);
+            putRow('mealIngredients', ingReal);
             await dbPut('meal_ingredients', ingReal);
           }
         }
@@ -2218,9 +2224,11 @@ function getSnoozedSuggestions() {
     return {};
   }
 }
-window.snoozeSuggestion = function(name) {
+window.snoozeSuggestion = function(id) {
+  const m = state.master.find(x => x.id === id);
+  if (!m) return;
   const s = getSnoozedSuggestions();
-  s[name.toLowerCase()] = Date.now();
+  s[m.name.toLowerCase()] = Date.now();
   localStorage.setItem('trolley_snoozed', JSON.stringify(s));
   haptic(8);
   render();
@@ -2356,10 +2364,7 @@ async function findOrCreateMaster(name) {
   const { id, ...payload } = tempRow;
   const real = await sbInsert('master_items', payload);
   if (real) {
-    // Replace temp row with real row
-    const idx = state.master.findIndex(r => r.id === tempId);
-    if (idx >= 0) {
-      state.master[idx] = real;
+    if (swapTemp('master', tempId, real)) {
       markRecentlyInserted('master_items', real.id);
       await dbPut('master_items', real);
     }
@@ -2408,9 +2413,7 @@ async function addOrIncrementOnTrip(master, qtyOverride) {
   const { id, ...payload } = tempRow;
   const real = await sbInsert('current_list', payload);
   if (real) {
-    const idx = state.current.findIndex(r => r.id === tempId);
-    if (idx >= 0) {
-      state.current[idx] = real;
+    if (swapTemp('current', tempId, real)) {
       markRecentlyInserted('current_list', real.id);
       try { await dbDelete('current_list', tempId); } catch (e) {}
       await dbPut('current_list', real);
@@ -2425,7 +2428,17 @@ async function addOrIncrementOnTrip(master, qtyOverride) {
   return null;
 }
 
-window.addItem = async function() {
+// "bread, milk and eggs" (or said out loud) is three items; "Salt and vinegar crisps" typed on its
+// own is one, and so is anything already on the Master list.
+function splitNames(raw, voice) {
+  const parts = raw.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  const list = voice || parts.length > 1;
+  const known = n => state.master.some(m => m.name.toLowerCase() === n.toLowerCase());
+  return parts.flatMap(p => (list && /\sand\s/i.test(p) && !known(p)
+    ? p.split(/\sand\s/i).map(x => x.trim()).filter(Boolean) : [p]));
+}
+
+window.addItem = async function(opts) {
   const input = document.getElementById('addInput');
   const raw = input.value.trim();
   if (!raw || currentView === 'history') return;
@@ -2439,7 +2452,7 @@ window.addItem = async function() {
     return;
   }
 
-  const names = raw.split(/[,;]|\sand\s/i).map(s => s.trim()).filter(Boolean);
+  const names = splitNames(raw, !!(opts && opts.voice));
   input.value = '';
   haptic(8);
   let masterAdded = 0;
@@ -2651,19 +2664,19 @@ window.undoDelete = async function() {
   if (kind === 'current_list') {
     const real = await sbInsert('current_list', payload);
     if (real) {
-      state.current.push(real);
+      putRow('current', real);
       await dbPut('current_list', real);
     }
   } else if (kind === 'master_items') {
     const real = await sbInsert('master_items', payload);
     if (real) {
-      state.master.push(real);
+      putRow('master', real);
       await dbPut('master_items', real);
     }
   } else if (kind === 'trip') {
     const real = await sbInsert('trips', payload);
     if (real) {
-      state.trips.unshift(real);
+      putRow('trips', real);
       state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
       await dbPut('trips', real);
       // Restore times_bought that was decremented when trip was deleted
@@ -2686,12 +2699,17 @@ window.undoDelete = async function() {
 window.clearCollected = async function() {
   const collected = state.current.filter(i => i.collected_at);
   if (!collected.length) { showToast('nothing collected yet'); return; }
-  for (const c of collected) {
-    state.current = state.current.filter(x => x.id !== c.id);
-    await dbDelete('current_list', c.id);
-    await sbDelete('current_list', c.id);
-  }
+  const ids = collected.map(c => c.id);
+  state.current = state.current.filter(x => !ids.includes(x.id));
   render();
+  await dbBulk('current_list', { del: ids });
+  const res = await sbWrite('delete current_list', () => supabase.from('current_list').delete().in('id', ids.filter(id => id > 0)));
+  if (res === null) {   // put them back
+    state.current.push(...collected);
+    await dbBulk('current_list', { put: collected });
+    render();
+    return;
+  }
   showToast('cleared ' + collected.length);
 };
 
@@ -2761,9 +2779,18 @@ window.completeTrip = function() {
   document.getElementById('tripComplete').classList.add('show');
 };
 
+let savingTrip = false;   // a second tap on Save while the first is still saving does nothing
 window.confirmCompleteTrip = async function() {
+  if (savingTrip) return;
   const collected = state.current.filter(i => i.collected_at);
   if (!collected.length) { closeTripComplete(); return; }
+  savingTrip = true;
+  const saveBtn = document.getElementById('tripSaveBtn');
+  if (saveBtn) saveBtn.disabled = true;
+  try { await saveTrip(collected); }
+  finally { savingTrip = false; if (saveBtn) saveBtn.disabled = false; }
+};
+async function saveTrip(collected) {
   haptic(20);
   const actualCostInput = document.getElementById('actualCost').value;
   const actualCost = actualCostInput ? parseFloat(actualCostInput) : null;
@@ -2791,55 +2818,43 @@ window.confirmCompleteTrip = async function() {
     return;
   }
 
-  // Trip saved — now apply local cleanup + per-item updates
-  state.trips.unshift(realTrip);
+  // Trip saved — now the list, the master items and out-of-stock flags, a request each
+  putRow('trips', realTrip);
+  state.trips.sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
   await dbPut('trips', realTrip);
 
-  const collectedIds = new Set(collected.map(c => c.id));
-  state.current = state.current.filter(x => !collectedIds.has(x.id));
+  const ids = collected.map(c => c.id);
+  state.current = state.current.filter(x => !ids.includes(x.id));
+  await dbBulk('current_list', { del: ids });
+  await sbWrite('delete current_list', () => supabase.from('current_list').delete().in('id', ids.filter(id => id > 0)));   // on failure we still have the trip
 
-  // Delete collected items from server + local DB
+  const masters = [];
   for (const c of collected) {
-    try { await dbDelete('current_list', c.id); } catch (e) {}
-    await sbDelete('current_list', c.id); // fire-and-forget on failure; we have the trip
-  }
-
-  // Update master items
-  for (const c of collected) {
-    if (!c.master_item_id) continue;
-    const master = state.master.find(m => m.id === c.master_item_id);
+    const master = c.master_item_id && state.master.find(m => m.id === c.master_item_id);
     if (!master) continue;
     master.times_bought = (master.times_bought || 0) + 1;
     master.last_bought_at = realTrip.completed_at;
     master.last_low_flagged_at = null;
-    await dbPut('master_items', master);
-    await sbUpdate('master_items', master.id, {
-      times_bought: master.times_bought,
-      last_bought_at: master.last_bought_at,
-      last_low_flagged_at: null,
-    });
+    if (!masters.includes(master)) masters.push(master);
   }
+  await dbBulk('master_items', { put: masters });
+  await sbUpsertMasters(masters, ['times_bought', 'last_bought_at', 'last_low_flagged_at']);
 
   // Clear out-of-stock flags for items bought from this shop
   const shopId = state.activeShopId;
-  if (shopId) {
-    for (const c of collected) {
-      const oos = state.outOfStock.find(o =>
-        o.master_item_id === c.master_item_id && o.shop_id === shopId
-      );
-      if (oos) {
-        state.outOfStock = state.outOfStock.filter(o => o.id !== oos.id);
-        try { await dbDelete('out_of_stock', oos.id); } catch (e) {}
-        await sbDelete('out_of_stock', oos.id);
-      }
-    }
+  const oos = shopId ? state.outOfStock.filter(o => o.shop_id === shopId && collected.some(c => c.master_item_id === o.master_item_id)) : [];
+  if (oos.length) {
+    const oosIds = oos.map(o => o.id);
+    state.outOfStock = state.outOfStock.filter(o => !oosIds.includes(o.id));
+    await dbBulk('out_of_stock', { del: oosIds });
+    await sbWrite('delete out_of_stock', () => supabase.from('out_of_stock').delete().in('id', oosIds));
   }
 
   currentTripOrder = 0;
   closeTripComplete();
   render();
   showToast('trip saved');
-};
+}
 
 window.closeTripComplete = function() { document.getElementById('tripComplete').classList.remove('show'); };
 
@@ -2961,7 +2976,7 @@ window.saveEdit = async function() {
     };
     const real = await sbInsert('out_of_stock', oosPayload);
     if (real) {
-      state.outOfStock.push(real);
+      putRow('outOfStock', real);
       await dbPut('out_of_stock', real);
     }
   } else if (!wantOOS && existingOOS) {
@@ -2981,7 +2996,8 @@ window.saveEdit = async function() {
 
   // Save to price history if price set and changed
   if (est_price != null && state.activeShopId) {
-    const recent = state.priceHistory.find(p => p.master_item_id === editingItemId && p.shop_id === state.activeShopId);
+    const recent = state.priceHistory.filter(p => p.master_item_id === editingItemId && p.shop_id === state.activeShopId)
+      .reduce((a, p) => (!a || new Date(p.recorded_at) > new Date(a.recorded_at) ? p : a), null);   // the latest
     if (!recent || Math.abs(recent.price - est_price) > 0.01) {
       const phPayload = {
         master_item_id: editingItemId,
@@ -2991,7 +3007,7 @@ window.saveEdit = async function() {
       };
       const real = await sbInsert('price_history', phPayload);
       if (real) {
-        state.priceHistory.push(real);
+        putRow('priceHistory', real);
         await dbPut('price_history', real);
       }
     }
@@ -3037,7 +3053,7 @@ window.addShop = async function() {
   const payload = { name, is_default: false, created_at: new Date().toISOString() };
   const real = await sbInsert('shops', payload);
   if (!real) return;
-  state.shops.push(real);
+  putRow('shops', real);
   await dbPut('shops', real);
   document.getElementById('newShopName').value = '';
   renderShopList();
@@ -3083,7 +3099,7 @@ function renderCategoriesList() {
   const sorted = [...state.categories].sort((a,b) => a.sort_order - b.sort_order);
   document.getElementById('categoriesList').innerHTML = sorted.map(c => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span>${c.icon} ${escHtml(c.label)}${c.is_builtin ? ' <span style="color:var(--muted);font-size:10px">built-in</span>' : ''}</span>
+      <span>${escHtml(c.icon)} ${escHtml(c.label)}${c.is_builtin ? ' <span style="color:var(--muted);font-size:10px">built-in</span>' : ''}</span>
       ${!c.is_builtin ? `<button class="btn-icon danger" onclick="deleteCategory(${c.id})">✕</button>` : ''}
     </div>
   `).join('');
@@ -3102,7 +3118,7 @@ window.addCategory = async function() {
   };
   const real = await sbInsert('categories', payload);
   if (!real) return;
-  state.categories.push(real);
+  putRow('categories', real);
   await dbPut('categories', real);
   document.getElementById('newCatLabel').value = '';
   document.getElementById('newCatIcon').value = '';
@@ -3164,7 +3180,7 @@ window.toggleVoice = function() {
   recognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     document.getElementById('addInput').value = text;
-    addItem();
+    addItem({ voice: true });
   };
   recognition.onerror = () => { showToast('voice error'); };
   recognition.onend = () => { isListening = false; document.getElementById('micBtn').classList.remove('listening'); };
@@ -3322,18 +3338,16 @@ listWrap.addEventListener('touchend', async e => {
       dragged.sort_order = targetOrder - 0.5;
       // Now renumber all master items by their current sort to clean integers
       const sortedMaster = sortByRoute([...state.master]);
+      const changed = [];
       let nextOrder = 10;
       for (const item of sortedMaster) {
-        const newOrder = nextOrder;
+        if (item.sort_order !== nextOrder) { item.sort_order = nextOrder; changed.push(item); }
         nextOrder += 10;
-        if (item.sort_order !== newOrder) {
-          item.sort_order = newOrder;
-          await dbPut('master_items', item);
-          await sbUpdate('master_items', item.id, { sort_order: newOrder });
-        }
       }
       haptic(15);
       render();
+      await dbBulk('master_items', { put: changed });
+      await sbUpsertMasters(changed, ['sort_order']);
     }
   }
   dragData = null;
@@ -3601,7 +3615,7 @@ window.previewRecipe = function() {
     `Found ${recipePreviewItems.length} ingredient${recipePreviewItems.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped)` : ''}. Tap to toggle:`;
   document.getElementById('recipePreviewList').innerHTML = recipePreviewItems.map((it, i) => `
     <label style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;${it.onTrip ? 'opacity:0.6' : ''}">
-      <input type="checkbox" ${it.checked ? 'checked' : ''} onchange="recipePreviewItems[${i}].checked=this.checked" style="width:18px;height:18px;flex-shrink:0">
+      <input type="checkbox" ${it.checked ? 'checked' : ''} onchange="toggleRecipeItem(${i}, this.checked)" style="width:18px;height:18px;flex-shrink:0">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;color:var(--text)">${escHtml(it.name)}${it.onTrip ? ' <span style="color:var(--accent-bright);font-size:10px">(already on trip)</span>' : ''}</div>
         <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">from: ${escHtml(it.original)}</div>
@@ -3611,6 +3625,8 @@ window.previewRecipe = function() {
   document.getElementById('recipeStep1').style.display = 'none';
   document.getElementById('recipeStep2').style.display = 'block';
 };
+
+window.toggleRecipeItem = function(i, on) { if (recipePreviewItems[i]) recipePreviewItems[i].checked = on; };
 
 window.importRecipe = async function() {
   const selected = recipePreviewItems.filter(it => it.checked);
@@ -3689,68 +3705,6 @@ window.handleReceiptUpload = async function(e) {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// QR SHARING
-// ════════════════════════════════════════════════════════════════════════════
-
-window.showShareQR = async function() {
-  closeSettings();
-  const cfg = getConfig();
-  if (!cfg) return;
-  const payload = JSON.stringify({ u: cfg.url, k: cfg.key });
-  const container = document.getElementById('qrContainer');
-  container.innerHTML = '';
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  await QRCode.toCanvas(canvas, payload, { width: 240, margin: 1 });
-  document.getElementById('shareQRModal').classList.add('show');
-};
-window.closeShareQR = function() { document.getElementById('shareQRModal').classList.remove('show'); };
-
-window.scanShareQR = async function() {
-  if (!('BarcodeDetector' in window)) {
-    showToast('QR scanning not supported here — type manually');
-    return;
-  }
-  const overlay = document.getElementById('qrScannerOverlay');
-  const video = document.getElementById('qrScannerVideo');
-  try {
-    qrScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    video.srcObject = qrScannerStream;
-    overlay.classList.add('show');
-    const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-    const loop = async () => {
-      if (!qrScannerStream) return;
-      if (video.readyState >= 2) {
-        try {
-          const codes = await detector.detect(video);
-          if (codes.length > 0) {
-            try {
-              const parsed = JSON.parse(codes[0].rawValue);
-              if (parsed.u && parsed.k) {
-                document.getElementById('cfgUrl').value = parsed.u;
-                document.getElementById('cfgKey').value = parsed.k;
-                closeQRScanner();
-                showToast('credentials filled');
-                return;
-              }
-            } catch (e) { /* not our QR */ }
-          }
-        } catch (e) {}
-      }
-      requestAnimationFrame(loop);
-    };
-    loop();
-  } catch (e) {
-    showToast('camera access denied');
-  }
-};
-
-window.closeQRScanner = function() {
-  if (qrScannerStream) { qrScannerStream.getTracks().forEach(t => t.stop()); qrScannerStream = null; }
-  document.getElementById('qrScannerOverlay').classList.remove('show');
-};
-
-// ════════════════════════════════════════════════════════════════════════════
 // ONBOARDING TOUR
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -3759,7 +3713,7 @@ const TOUR_STEPS = [
   { emoji: '📋', title: 'Master vs Trip', body: 'Master is your full catalogue — every item you might ever buy. Trip is your active list. Tap "+ need" in Master to add to the current Trip.' },
   { emoji: '🛍', title: 'At the shop', body: 'Tap items to tick them off as you collect. The order you tick them in trains the route. After a few trips, items auto-sort to match your walking path.' },
   { emoji: '⭐', title: 'Staples', body: 'Long-press a master item to edit it. Mark frequent buys as staples — tap "+ staples" at the start of a trip to add them all in one go.' },
-  { emoji: '✨', title: 'Smart features', body: 'Voice add 🎤, scan barcodes 📷, import from recipes 📋, scan QR to share with partner. Tap ⚙ → "share to partner" to invite them.' },
+  { emoji: '✨', title: 'Smart features', body: 'Voice add 🎤, scan barcodes 📷, import from recipes 📋. Your partner signs in with their own Vaulted account and sees the same list.' },
   { emoji: '👍', title: "You're set", body: 'Pick the shop at the top, then start a Trip. Everything syncs across devices in real time.' },
 ];
 let tourStep = 0;
@@ -3872,7 +3826,7 @@ function renderTrip() {
                   ${escHtml(s.name)}
                   <span class="due">${s.daysSinceLast}d / ~${s.avgGap}d</span>
                 </button>
-                <button class="suggest-chip" onclick="snoozeSuggestion('${escHtml(s.name).replace(/'/g, '&#39;')}')" style="padding:6px 8px;border-top-left-radius:0;border-bottom-left-radius:0;color:var(--muted)" title="snooze 14 days">✕</button>
+                <button class="suggest-chip" onclick="snoozeSuggestion(${s.id})" style="padding:6px 8px;border-top-left-radius:0;border-bottom-left-radius:0;color:var(--muted)" title="snooze 14 days">✕</button>
               </span>
             `).join('')}
           </div>
@@ -3925,7 +3879,7 @@ function tripItemHTML(item) {
   const metaParts = [];
   // Only show category icon in meta if there's no thumbnail (avoid duplicate)
   const hasThumb = master && (master.image_url || cat);
-  if (cat && !hasThumb) metaParts.push(`<span>${cat.icon}</span>`);
+  if (cat && !hasThumb) metaParts.push(`<span>${escHtml(cat.icon)}</span>`);
   if (aisle != null) metaParts.push(`<span class="aisle-pin">aisle ${aisle}</span>`);
   if (learned && !item.collected_at && aisle == null) {
     const dots = '●'.repeat(conf + 1) + '○'.repeat(2 - conf);
@@ -3935,9 +3889,7 @@ function tripItemHTML(item) {
   if (master && master.est_price) metaParts.push(`<span class="price-tag">${fmtMoney(master.est_price * item.quantity)}</span>`);
   if (priceComp) metaParts.push(`<span class="price-better">−${fmtMoney(priceComp.saving)} @ ${escHtml(priceComp.shop)}</span>`);
 
-  const thumb = master && master.image_url
-    ? `<div class="item-thumb"><img src="${escHtml(master.image_url)}" onerror="this.parentElement.innerHTML='${cat ? cat.icon : '📦'}'"></div>`
-    : (cat ? `<div class="item-thumb">${cat.icon}</div>` : '');
+  const thumb = master && master.image_url ? thumbHtml(master.image_url, cat ? cat.icon : '📦') : (cat ? thumbHtml(null, cat.icon) : '');
 
   return `
     <div class="item${item.collected_at ? ' collected' : ''}${isLowFlagged ? ' low-flagged' : ''}${isRecentlyAddedCurrent(item.id) ? ' flash-new' : ''}" data-id="${item.id}" data-kind="current" data-swipeable="1" onclick="toggleCollected(${item.id})">
@@ -3998,7 +3950,7 @@ function renderMaster() {
   for (const cat of catOrder) {
     const items = sortByRoute(byCategory[cat]);
     const c = categoryByKey(cat);
-    html += `<div class="section-label with-line"><span>${c.icon} ${c.label}</span> <span class="cat-badge">${items.length}</span></div>`;
+    html += `<div class="section-label with-line"><span>${escHtml(c.icon)} ${escHtml(c.label)}</span> <span class="cat-badge">${items.length}</span></div>`;
     html += items.map(m => masterItemHTML(m, false)).join('');
   }
   if (dormant.length && !search) {
@@ -4022,9 +3974,7 @@ function masterItemHTML(m, allowDrag) {
   if (m.aisle_override != null) metaParts.push(`<span class="aisle-pin">aisle ${m.aisle_override}</span>`);
   if (m.default_qty > 1) metaParts.push(`def qty ${m.default_qty}`);
 
-  const thumb = m.image_url
-    ? `<div class="item-thumb"><img src="${escHtml(m.image_url)}" onerror="this.parentElement.innerHTML='${cat.icon}'"></div>`
-    : `<div class="item-thumb">${cat.icon}</div>`;
+  const thumb = thumbHtml(m.image_url, cat.icon);
 
   return `
     <div class="item" data-id="${m.id}" data-kind="master" data-swipeable="1" style="${isOOS ? 'opacity:0.7' : ''}">
@@ -4087,7 +4037,7 @@ function renderHistory() {
   const totalSpent = trips.reduce((s, t) => s + (Number(t.total_cost) || 0), 0);
   const buyCount = {};
   for (const t of trips) {
-    for (const i of (t.items || [])) buyCount[i.name] = (buyCount[i.name] || 0) + (i.quantity || 1);
+    for (const i of (t.items || [])) buyCount[i.name] = (buyCount[i.name] || 0) + (Number(i.quantity) || 1);
   }
   const topItem = Object.entries(buyCount).sort((a, b) => b[1] - a[1])[0];
   let daysSince = '–';
@@ -4160,7 +4110,7 @@ function renderHistory() {
             ${items.map(i => `
               <div class="trip-item-line">
                 <span class="trip-item-name">${escHtml(i.name)}</span>
-                <span class="trip-item-qty">×${i.quantity}${i.est_price ? ` · ${fmtMoney(i.est_price * i.quantity)}` : ''}</span>
+                <span class="trip-item-qty">×${escHtml(i.quantity)}${i.est_price ? ` · ${fmtMoney(i.est_price * i.quantity)}` : ''}</span>
               </div>
             `).join('')}
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
@@ -4208,7 +4158,7 @@ function renderMeals() {
       const m = state.master.find(x => x.id === ing.master_item_id);
       const cat = m ? state.categories.find(c => c.key === m.category) : null;
       if (cat && !seenCats.has(cat.key)) {
-        cats.push(cat.icon);
+        cats.push(escHtml(cat.icon));
         seenCats.add(cat.key);
         if (cats.length >= 3) break;
       }
@@ -4233,9 +4183,7 @@ function renderMeals() {
           ` : ingredients.map(ing => {
             const master = state.master.find(m => m.id === ing.master_item_id);
             const cat = master ? state.categories.find(c => c.key === master.category) : null;
-            const thumb = master && master.image_url
-              ? `<div class="item-thumb"><img src="${escHtml(master.image_url)}" onerror="this.parentElement.innerHTML='${cat ? cat.icon : '📦'}'"></div>`
-              : `<div class="item-thumb">${cat ? cat.icon : '📦'}</div>`;
+            const thumb = thumbHtml(master && master.image_url, cat ? cat.icon : '📦');
             const onTrip = state.current.find(c => c.master_item_id === ing.master_item_id && !c.collected_at);
             return `
               <div class="meal-ingredient">
@@ -4315,7 +4263,7 @@ window.createMeal = async function(name) {
   const payload = { name, notes: null, created_at: new Date().toISOString() };
   const real = await sbInsert('meals', payload);
   if (!real) return null;
-  state.meals.push(real);
+  putRow('meals', real);
   await dbPut('meals', real);
   // Auto-open edit modal so user can immediately add ingredients
   openMealEdit(real.id);
@@ -4356,7 +4304,7 @@ function renderMealEditIngredients() {
     const cat = master ? state.categories.find(c => c.key === master.category) : null;
     return `
       <div class="meal-edit-ing-row">
-        <span>${cat ? cat.icon : '📦'}</span>
+        <span>${escHtml(cat ? cat.icon : '📦')}</span>
         <span style="flex:1">${escHtml(ing.name)}</span>
         <button class="modal-btn" style="padding:4px 10px;font-size:11px" onclick="removeMealIngredient(${ing.id})">remove</button>
       </div>
@@ -4400,7 +4348,7 @@ window.renderIngredientSuggestions = function() {
     const cat = state.categories.find(c => c.key === m.category);
     html += `
       <div class="ing-suggestion" onclick="pickMealIngredient(${m.id})">
-        <span class="ing-icon">${cat ? cat.icon : '📦'}</span>
+        <span class="ing-icon">${escHtml(cat ? cat.icon : '📦')}</span>
         <span class="ing-name">${escHtml(m.name)}</span>
       </div>
     `;
@@ -4481,7 +4429,7 @@ async function _addIngredientToMeal(mealId, master) {
   };
   const real = await sbInsert('meal_ingredients', payload);
   if (!real) return;
-  state.mealIngredients.push(real);
+  putRow('mealIngredients', real);
   await dbPut('meal_ingredients', real);
   renderMealEditIngredients();
   haptic(5);

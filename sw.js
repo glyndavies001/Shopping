@@ -1,6 +1,6 @@
 // Bump this version any time index.html changes meaningfully
-const CACHE_NAME = 'trolley-v5.21-2026-06-02';
-const SHELL = ['./', './index.html', './manifest.json', './icon.svg'];
+const CACHE_NAME = 'trolley-v6.0-2026-09-27';
+const SHELL = ['./', './index.html', './manifest.json', './icon.svg', './vendor/supabase.js'];   // everything the app needs to open offline
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -29,8 +29,10 @@ function raceNetworkCache(request, timeoutMs) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      const copy = resp.clone();
-      caches.open(CACHE_NAME).then(c => c.put(request, copy)).catch(() => {});
+      if (resp.ok) {   // never keep an error page as the app
+        const copy = resp.clone();
+        caches.open(CACHE_NAME).then(c => c.put(request, copy)).catch(() => {});
+      }
       resolve(resp);
     }).catch(async () => {
       if (settled) return;
@@ -58,8 +60,10 @@ self.addEventListener('fetch', e => {
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(resp => {
-        const copy = resp.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(() => {});
+        if (resp.ok) {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(() => {});
+        }
         return resp;
       }).catch(() => cached);
     })
