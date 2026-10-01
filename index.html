@@ -975,7 +975,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   </div>
 </div>
 
-<div class="version-footer">v6.0</div>
+<div class="version-footer">v6.0.1</div>
 
 <!-- Trip complete -->
 <div class="modal-bg" id="tripComplete">
@@ -1122,7 +1122,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
   <div class="modal-card">
     <h2>Settings</h2>
     <p style="margin-bottom:8px">Status: <span id="netStatus">online</span></p>
-    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v6.0</span></p>
+    <p style="margin-bottom:8px;color:var(--muted);font-size:12px">App version: <span id="settingsVersion">v6.0.1</span></p>
     <div class="modal-btn-row" style="flex-direction:column;gap:8px">
       <button class="modal-btn" onclick="openCategoriesManager()">edit categories</button>
       <button class="modal-btn" onclick="forceSync()">refresh from server</button>
@@ -1196,7 +1196,7 @@ header { padding: 16px 18px 0; flex-shrink: 0; padding-top: calc(16px + var(--sa
 
 <script src="./vendor/supabase.js"></script>
 <script type="module">
-const APP_VERSION = 'v6.0';
+const APP_VERSION = 'v6.0.1';
 const SUPABASE_URL = 'https://yfbarahnwcrwewtpithb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ItUAbr04KIijWuO-JWgDNg_J5YCwaqK';
 const AUTH_KEY = 'sb-yfbarahnwcrwewtpithb-auth-token';   // where the sign-in is kept on the phone
@@ -1389,52 +1389,93 @@ function openDB() {
   });
 }
 
+// Which list each store holds, so a problem with the phone's copy says which one it was.
+const STORE_LABEL = {
+  shops: 'Shops', master_items: 'Master list', current_list: 'Trip list', trips: 'History',
+  order_map: 'Route order', app_state: 'Settings', categories: 'Categories', price_history: 'Prices',
+  meals: 'Meals', meal_ingredients: 'Meal ingredients', out_of_stock: 'Out of stock',
+};
+function phoneCopyError(store, err) {
+  const e = new Error(`${STORE_LABEL[store] || store} (this phone's copy): ${(err && err.message) || err}`);
+  e.cause = err;
+  return e;
+}
+// IndexedDB keys: numbers, strings and dates (order_map's is the pair shop_id + name).
+const validKey = k => (typeof k === 'number' && !isNaN(k)) || typeof k === 'string' || (k instanceof Date && !isNaN(k));
+const keyOk = k => (Array.isArray(k) ? k.length > 0 && k.every(validKey) : validKey(k));
+// A row's key in its store, or undefined when it hasn't got one.
+function rowKey(store, row) {
+  if (!row || typeof row !== 'object') return undefined;
+  if (store === 'order_map') return validKey(row.shop_id) && validKey(row.name) ? [row.shop_id, row.name] : undefined;
+  const k = store === 'app_state' ? row.key : row.id;
+  return validKey(k) ? k : undefined;
+}
+
 function dbAll(store) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).getAll();
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
+    try {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(phoneCopyError(store, req.error));
+    } catch (e) { rej(phoneCopyError(store, e)); }
   });
 }
 
+// A row with no key (a live update that came without its row, say) is skipped, not saved.
 function dbPut(store, value) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readwrite');
-    const r = tx.objectStore(store).put(value);
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
+    if (rowKey(store, value) === undefined) { console.warn(`skipped a ${store} row with no id`, value); return res(); }
+    try {
+      const tx = db.transaction(store, 'readwrite');
+      const r = tx.objectStore(store).put(value);
+      r.onsuccess = () => res();
+      r.onerror = () => rej(phoneCopyError(store, r.error));
+    } catch (e) { rej(phoneCopyError(store, e)); }
   });
 }
 
 function dbDelete(store, key) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readwrite');
-    const r = tx.objectStore(store).delete(key);
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
+    if (!keyOk(key)) return res();
+    try {
+      const tx = db.transaction(store, 'readwrite');
+      const r = tx.objectStore(store).delete(key);
+      r.onsuccess = () => res();
+      r.onerror = () => rej(phoneCopyError(store, r.error));
+    } catch (e) { rej(phoneCopyError(store, e)); }
   });
 }
 
 function dbClear(store) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readwrite');
-    const r = tx.objectStore(store).clear();
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
+    try {
+      const tx = db.transaction(store, 'readwrite');
+      const r = tx.objectStore(store).clear();
+      r.onsuccess = () => res();
+      r.onerror = () => rej(phoneCopyError(store, r.error));
+    } catch (e) { rej(phoneCopyError(store, e)); }
   });
 }
 
 // Several changes to one store in a single transaction (all or nothing, and quick).
+// Rows and keys with no key are skipped.
 function dbBulk(store, { clear = false, put = [], del = [] } = {}) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readwrite'), os = tx.objectStore(store);
-    if (clear) os.clear();
-    for (const k of del) os.delete(k);
-    for (const v of put) os.put(v);
-    tx.oncomplete = () => res();
-    tx.onerror = () => rej(tx.error);
-    tx.onabort = () => rej(tx.error);
+    let tx = null;
+    try {
+      tx = db.transaction(store, 'readwrite');
+      const os = tx.objectStore(store);
+      if (clear) os.clear();
+      for (const k of del) if (keyOk(k)) os.delete(k);
+      for (const v of put) if (rowKey(store, v) !== undefined) os.put(v);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(phoneCopyError(store, tx.error));
+      tx.onabort = () => rej(phoneCopyError(store, tx.error));
+    } catch (e) {
+      try { if (tx) tx.abort(); } catch (_) {}   // nothing half-done
+      rej(phoneCopyError(store, e));
+    }
   });
 }
 const dbReplaceAll = (store, items) => dbBulk(store, { clear: true, put: items });
@@ -1645,7 +1686,12 @@ async function init() {
     localStorage.removeItem('trolley_url');   // from before signing in (a pasted key)
     localStorage.removeItem('trolley_key');
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    supabase.auth.onAuthStateChange(event => { if (event === 'SIGNED_OUT' && started) location.reload(); });
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' && started) location.reload();
+      // A renewed sign-in goes to the live channel too, so rejoining after the phone sleeps uses it.
+      if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session && session.access_token)
+        setTimeout(() => liveAuth(session.access_token), 0);
+    });
   }
   if (started) return;
   const { data, error } = await supabase.auth.getSession();
@@ -1675,6 +1721,9 @@ async function init() {
     setSyncStatus('connected');
   }
 
+  // Join the live channel with the sign-in (see liveAuth), without waiting long for one that's
+  // still being renewed (offline, say: it's passed on once renewed).
+  await Promise.race([liveAuth(), new Promise(r => setTimeout(r, 3000))]);
   supabase.channel('trolley-realtime')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'shops' }, p => applyDelta('shops', p))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'master_items' }, p => applyDelta('master_items', p))
@@ -1879,11 +1928,49 @@ function tableToStateKey(table) {
   })[table];
 }
 
+// The live channel uses the sign-in, not the app key. supabase-js only passes the sign-in on
+// after the channel has joined, and until Supabase has it, changes arrive as empty updates.
+function liveAuth(token) {
+  try {
+    const p = supabase.realtime && supabase.realtime.setAuth(token);
+    return p && typeof p.catch === 'function' ? p.catch(() => {}) : Promise.resolve();
+  } catch (e) { return Promise.resolve(); }
+}
+
+// A live update that came without its row (Supabase sends an empty one, with an error, for a
+// change it won't show this sign-in) is skipped, and that list is read again shortly instead.
+function liveRowOk(table, payload) {
+  if (!payload || (Array.isArray(payload.errors) && payload.errors.length)) return false;
+  return rowKey(table, payload.eventType === 'DELETE' ? payload.old : payload.new) !== undefined;
+}
+function syncTable(table) {
+  return ({
+    shops: syncShops, master_items: syncMaster, current_list: syncCurrent, order_map: syncOrderMap,
+    trips: syncTrips, app_state: syncAppState, categories: syncCategories, price_history: syncPriceHistory,
+    meals: syncMeals, meal_ingredients: syncMealIngredients, out_of_stock: syncOutOfStock,
+  })[table];
+}
+const resyncTimers = {};
+let liveAuthAt = 0;
+function resyncSoon(table, payload) {
+  const errs = payload && Array.isArray(payload.errors) ? payload.errors : [];
+  console.warn(`live update for ${table} came without its row` + (errs.length ? ` (${errs.join(', ')})` : ''));
+  // "Unauthorized": the live channel doesn't have the sign-in yet, so send it again.
+  if (errs.some(e => /401/.test(String(e))) && Date.now() - liveAuthAt > 30000) { liveAuthAt = Date.now(); liveAuth(); }
+  clearTimeout(resyncTimers[table]);
+  resyncTimers[table] = setTimeout(() => {
+    delete resyncTimers[table];
+    const sync = syncTable(table);
+    if (sync && navigator.onLine) sync().catch(e => showError(`${STORE_LABEL[table] || table} sync`, e));
+  }, 1500);
+}
+
 // Apply a realtime postgres_changes payload directly without full refetch.
 // payload has: { eventType: 'INSERT'|'UPDATE'|'DELETE', new, old, table }
 async function applyDelta(table, payload) {
   const stateKey = tableToStateKey(table);
   if (!stateKey) return;
+  if (!liveRowOk(table, payload)) return resyncSoon(table, payload);
   const arr = state[stateKey];
 
   // Skip realtime echo of our own just-inserted rows to avoid double-add
@@ -1925,6 +2012,7 @@ async function applyDelta(table, payload) {
 }
 
 async function applyOrderMapDelta(payload) {
+  if (!liveRowOk('order_map', payload)) return resyncSoon('order_map', payload);
   if (payload.eventType === 'DELETE') {
     const o = payload.old;
     if (state.orderMap[o.shop_id]) delete state.orderMap[o.shop_id][o.name];
@@ -1939,6 +2027,7 @@ async function applyOrderMapDelta(payload) {
 }
 
 async function applyAppStateDelta(payload) {
+  if (!liveRowOk('app_state', payload)) return resyncSoon('app_state', payload);
   if (payload.eventType === 'DELETE') {
     try { await dbDelete('app_state', payload.old.key); } catch (e) {}
   } else {

@@ -1,5 +1,5 @@
 // Bump this version any time index.html changes meaningfully
-const CACHE_NAME = 'trolley-v6.0-2026-09-27';
+const CACHE_NAME = 'trolley-v6.0.1-2026-10-01';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg', './vendor/supabase.js'];   // everything the app needs to open offline
 
 self.addEventListener('install', e => {
