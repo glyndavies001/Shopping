@@ -9,6 +9,8 @@ A shared household shopping list (installable web app). Each person signs in wit
 - Adding: type several at once ("bread, milk and eggs"), say them (🎤), scan a barcode (📷, Android), or paste a recipe.
 - Swipe right to tick, left to remove; long-press to edit; pull down to refresh.
 
+- **What's new** – after an update, a note of what's changed shows once on each phone (not on a first run, which gets the tour); "what's new" in settings shows it again. Add an entry to `WHATS_NEW` in `index.html`, newest first, with every update you'd notice.
+
 ## How it's built
 
 Plain HTML and JavaScript, no build step: `index.html` (the whole app), `sw.js` (offline cache: the app opens without signal and shows the last copy of the list), `manifest.json`, `icon.svg`, `vendor/supabase.js` (Supabase JS 2.49.4).
